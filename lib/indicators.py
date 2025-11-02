@@ -86,16 +86,31 @@ def candlestick_score(opens, highs, lows, closes):
 
 # --- Bollinger Bands ---
 def bollinger_score(prices, period=20, nbdev=2):
+    """
+    Calculate Bollinger Bands and return a score out of 5:
+      5 = strong buy (price near lower band)
+      3 = hold (price near middle band)
+      0 = sell (price near upper band)
+    """
     closes = np.array(prices, dtype=float)
-    upper, middle, lower = talib.BBANDS(closes, timeperiod=period, nbdevup=nbdev, nbdevdn=nbdev)
+    upper, middle, lower = talib.BBANDS(
+        closes, timeperiod=period, nbdevup=nbdev, nbdevdn=nbdev, matype=0
+    )
     cur = closes[-1]
-    band_pos = (upper[-1] - cur) / (upper[-1] - lower[-1])
+    upper_val, lower_val = upper[-1], lower[-1]
+
+    # ✅ Prevent divide-by-zero
+    if (upper_val - lower_val) == 0:
+        return 3  # neutral — no volatility
+
+    band_pos = (upper_val - cur) / (upper_val - lower_val)
+
     if band_pos > 0.8:
-        return 5
+        return 5   # near lower band → buy zone
     elif band_pos < 0.2:
-        return 0
+        return 0   # near upper band → sell zone
     else:
-        return 3
+        return 3   # middle → hold
 
 # --- MACD Divergence ---
 def macd_divergence_score(prices, lookback=5):

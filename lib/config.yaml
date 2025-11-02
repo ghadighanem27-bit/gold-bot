@@ -4,10 +4,10 @@ api_secret: "PBbKS&UYgwqueyG8D1JBMdoLKYSC&ojKfP17g5ecDRKDjy7yGOUKDyK1HULvQI4"
 base_url: "https://testnet.binance.vision/api"
 
 # Trading parameters
-symbol: "PEPEUSDT"
+symbol: "ETHUSDT"
 trade_amount: 0.01
 timeframe: "5m"
 
 # Bot behavior
-loop_interval: 5 # in seconds (5 min)
+loop_interval: 300 # in seconds (5 min)
 
