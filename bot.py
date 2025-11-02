@@ -33,11 +33,12 @@ while True:
     print(f"📊 Total technical score: {score:.2f}")
 
     # Simple example of acting on score
-    if score >= 45:
+    if score >= 40:
         log_signal("BUY", score, df['c'].iloc[-1])
-    elif score <= 15:
+    elif score <= 25:
         log_signal("SELL", score, df['c'].iloc[-1])
     else:
         print("⚪ HOLD")
 
     time.sleep(loop_interval)
+
