@@ -40,9 +40,10 @@ while True:
         print("🔴 SELL | Price: {price:.2f}")
         log_signal("🔴 SELL", score, df['c'].iloc[-1], price)
     else:
-        print("⚪ HOLD Price: {price:.2f}")
+        print("⚪ HOLD | Price: {price:.2f}")
 
     time.sleep(loop_interval)
+
 
 
 
