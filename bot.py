@@ -35,15 +35,16 @@ while True:
 
     # Simple example of acting on score
     if score >= 40:
-        print("🟢 BUY | Price: {price:.2f}")
+        print("🟢 BUY | Price: ", price)
         log_signal("🟢 BUY", score, price)
     elif score <= 25:
-        print("🔴 SELL | Price: {price:.2f}")
+        print("🔴 SELL | Price: ", price)
         log_signal("🔴 SELL", score, price)
     else:
-        print("⚪ HOLD | Price: {price:.2f}")
+        print("⚪ HOLD | Price: ", price)
 
     time.sleep(loop_interval)
+
 
 
 
