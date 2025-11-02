@@ -34,12 +34,15 @@ while True:
 
     # Simple example of acting on score
     if score >= 40:
-        log_signal("🟢 BUY", score, df['c'].iloc[-1])
+        print("🟢 BUY | Price: {price:.2f}")
+        log_signal("🟢 BUY", score, df['c'].iloc[-1], price)
     elif score <= 25:
-        log_signal("🔴 SELL", score, df['c'].iloc[-1])
+        print("🔴 SELL | Price: {price:.2f}")
+        log_signal("🔴 SELL", score, df['c'].iloc[-1], price)
     else:
-        print("⚪ HOLD")
+        print("⚪ HOLD Price: {price:.2f}")
 
     time.sleep(loop_interval)
+
 
 
