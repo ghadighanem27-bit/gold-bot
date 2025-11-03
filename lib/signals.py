@@ -22,7 +22,7 @@ def signals(score, price, symbol):
             "Action      |    🟢 BUY\n"
             f"Symbol    |    {symbol}\n"
             f"Price        |    {price:.2f}\n"
-            f"Score       |    {score}\n"
+            f"Score       |    {score:.2f}\n"
             "-----------------------------")
             print(message)
             log_signal("🟢 BUY", score, price)
@@ -36,7 +36,7 @@ def signals(score, price, symbol):
             "Action      |    🔴 SELL\n"
             f"Symbol    |    {symbol}\n"
             f"Price        |    {price:.2f}\n"
-            f"Score       |    {score}\n"
+            f"Score       |    {score:.2f}\n"
             "-----------------------------")
             print(message)
             log_signal("🔴 SELL", score, price)
