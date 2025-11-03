@@ -12,6 +12,8 @@ def log_signal(action, rsi, price):
 position = "NULL"  # Global or tracked position state
 
 def signals(score, price, symbol):
+    
+    global position
 
     if score >= 30:
         if position != "BUY":
