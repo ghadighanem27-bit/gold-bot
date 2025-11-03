@@ -1,5 +1,6 @@
 import datetime
 from telegram import Bot
+from lib.telegram_bot import send_message_sync
 
 
 def log_signal(action, rsi, price):
@@ -15,16 +16,18 @@ def signals(score, price):
 
     if score >= 30:
         if position != "BUY":
-            print("🟢 BUY | Price:{price} | score: {score}")
+            message = f"🟢 BUY | Price: {price} | Score: {score}"
+            print(message)
             log_signal("🟢 BUY", score, price)
-            send_telegram_message(message)
+            send_message_sync(message)
             position = "BUY"
 
     elif score <= 20:
         if position != "SELL":
-            print("🔴 SELL | Price:{price} | score: {score}")
+            message = f"🔴 SELL | Price: {price} | Score: {score}"
+            print(message)
             log_signal("🔴 SELL", score, price)
-            send_telegram_message(message)
+            send_message_sync(message)
             position = "SELL"
 
     else:
