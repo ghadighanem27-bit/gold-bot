@@ -14,6 +14,7 @@ position = "NULL"  # Global or tracked position state
 def signals(score, price, symbol):
     
     global position
+    symbol = symbol.strip().upper()
 
     if score >= 30:
         if position != "BUY":
