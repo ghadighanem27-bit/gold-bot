@@ -20,7 +20,6 @@ while True:
     df = get_data(symbol)
     price = df['c'].iloc[-1]
     score = technical_score(df)
-    symbol = {symbol}
 
     signals(score, price, symbol)
 

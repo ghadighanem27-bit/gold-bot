@@ -4,7 +4,7 @@ from lib.vars import client
 
 def get_data(symbol, interval="5m", limit=200):
     """Fetch recent candles for a given symbol."""
-    symbol = symbol.strip().upper()
+    symbol = cfg["symbol"].strip().upper().replace("/", "")
     candles = client.get_klines(symbol=symbol, interval=interval, limit=limit)
     df = pd.DataFrame(candles, columns=[
         "t","o","h","l","c","v","ct","qv","n","tb","tbv","ig"
