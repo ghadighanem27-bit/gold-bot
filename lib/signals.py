@@ -16,7 +16,7 @@ def signals(score, price):
 
     if score >= 30:
         if position != "BUY":
-            message = f"🟢 BUY | Price: {price} | Score: {score}"
+            message = f"🟢 BUY | Price: {price} | Score: {score:.2f}"
             print(message)
             log_signal("🟢 BUY", score, price)
             send_message_sync(message)
@@ -24,12 +24,12 @@ def signals(score, price):
 
     elif score <= 20:
         if position != "SELL":
-            message = f"🔴 SELL | Price: {price} | Score: {score}"
+            message = f"🔴 SELL | Price: {price} | Score: {score:.2f}"
             print(message)
             log_signal("🔴 SELL", score, price)
             send_message_sync(message)
             position = "SELL"
 
     else:
-        print("⚪ HOLD | Price:{price} | score: {score}" )
+        print("⚪ HOLD | Price:{price} | score: {score:.2f}" )
         log_signal("⚪ HOLD", score, price)
