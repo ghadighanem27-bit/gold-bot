@@ -13,28 +13,16 @@ from lib.vars import client, symbol, loop_interval
 # Allow emojis in console
 sys.stdout.reconfigure(encoding='utf-8')
 
-def market_is_closed():
-    """Return True if it's Saturday or Sunday (UTC)."""
-    today = datetime.datetime.utcnow().weekday()  # Monday=0 ... Sunday=6
-    return today in [5, 6]
-
 print(f"🚀 Starting trading bot for {symbol}")
 position = "NULL"
 
 while True:
-    """
-    if market_is_closed():
-        print("🕒 Market closed (weekend). Sleeping 1 hour...")
-        time.sleep(3600)
-        continue
-        """
-
     df = get_data(symbol)
     price = df['c'].iloc[-1]
     score = technical_score(df)
-    
+    symbol = {symbol}
 
-    signals(score, price)
+    signals(score, price, symbol)
 
     
 

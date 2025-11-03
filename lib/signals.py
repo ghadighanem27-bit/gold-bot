@@ -11,12 +11,22 @@ def log_signal(action, rsi, price):
 
 position = None  # Global or tracked position state
 
-def signals(score, price):
+def signals(score, price, symbol):
     global position
 
     if score >= 30:
         if position != "BUY":
-            message = f"🟢 BUY | Price: {price} | Score: {score:.2f}"
+            
+            message =  "<b>📊 TRADE SIGNAL</b>\n"
+            "<pre>"
+            "-----------------------------\n"
+            "Action   | 🟢 BUY\n"
+            f"Symbol   | {symbol}\n"
+            f"Price    | {price:.2f}\n"
+            f"Score    | {score}\n"
+            f"Time     | {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+            "-----------------------------"
+            "</pre>"
             print(message)
             log_signal("🟢 BUY", score, price)
             send_message_sync(message)
@@ -24,7 +34,16 @@ def signals(score, price):
 
     elif score <= 20:
         if position != "SELL":
-            message = f"🔴 SELL | Price: {price} | Score: {score:.2f}"
+            message =  "<b>📊 TRADE SIGNAL</b>\n"
+            "<pre>"
+            "-----------------------------\n"
+            "Action   | 🔴 SELL\n"
+            f"Symbol   | {symbol}\n"
+            f"Price    | {price:.2f}\n"
+            f"Score    | {score}\n"
+            f"Time     | {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+            "-----------------------------"
+            "</pre>"
             print(message)
             log_signal("🔴 SELL", score, price)
             send_message_sync(message)
