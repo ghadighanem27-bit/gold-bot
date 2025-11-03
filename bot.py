@@ -19,6 +19,7 @@ def market_is_closed():
     return today in [5, 6]
 
 print(f"🚀 Starting trading bot for {symbol}")
+position = "NULL"
 
 while True:
     """
@@ -34,7 +35,7 @@ while True:
     print(f"📊 Total technical score: {score:.2f}")
 
 
-    position = "NULL"
+    
     # Simple example of acting on score
     if score >= 30:
         if position != "BUY" :
@@ -50,6 +51,7 @@ while True:
         print("⚪ HOLD | Price: ", price)
 
     time.sleep(loop_interval)
+
 
 
 
