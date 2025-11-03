@@ -7,7 +7,7 @@ import yaml
 # Internal imports
 from lib.market_data import get_data
 from lib.indicators import technical_score
-from lib.signals import log_signal
+from lib.signals import log_signal, signals
 from lib.vars import client, symbol, loop_interval
 
 # Allow emojis in console
@@ -34,21 +34,10 @@ while True:
     score = technical_score(df)
     print(f"📊 Total technical score: {score:.2f}")
 
+    signals(score, price)
 
     
-    # Simple example of acting on score
-    if score >= 30:
-        if position != "BUY" :
-            print("🟢 BUY | Price: ", price)
-            log_signal("🟢 BUY", score, price)
-            position = "BUY"
-    elif score <= 20:
-        if position != "SELL":
-            print("🔴 SELL | Price: ", price)
-            log_signal("🔴 SELL", score, price)
-            position = "SELL"
-    else:
-        print("⚪ HOLD | Price: ", price)
+
 
     time.sleep(loop_interval)
 

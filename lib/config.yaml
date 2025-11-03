@@ -3,6 +3,10 @@ api_key: "ftQsSUG05ozKrrINbT31fDzmSe3hYX6wNaHznU8qXk03zuplNVSERbBaqvSXbpo2"
 api_secret: "PBbKS&UYgwqueyG8D1JBMdoLKYSC&ojKfP17g5ecDRKDjy7yGOUKDyK1HULvQI4"
 base_url: "https://testnet.binance.vision/api"
 
+# Telegram config
+telegram_bot_token: "7743046161:AAG1P4Yo6lZZ7t1Auo10Aeyp8YFdkvL5KNw"
+telegram_chat_id: "1131830593"
+
 # Trading parameters
 symbol: "ETHUSDT"
 trade_amount: 0.01
@@ -10,5 +14,4 @@ timeframe: "5m"
 
 # Bot behavior
 loop_interval: 300 # in seconds (5 min)
-
 
