@@ -34,16 +34,17 @@ while True:
     print(f"📊 Total technical score: {score:.2f}")
 
     # Simple example of acting on score
-    if score >= 40:
+    if score >= 30:
         print("🟢 BUY | Price: ", price)
         log_signal("🟢 BUY", score, price)
-    elif score <= 25:
+    elif score <= 20:
         print("🔴 SELL | Price: ", price)
         log_signal("🔴 SELL", score, price)
     else:
         print("⚪ HOLD | Price: ", price)
 
     time.sleep(loop_interval)
+
 
 
 
