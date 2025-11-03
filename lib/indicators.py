@@ -8,12 +8,8 @@ def get_rsi(df):
     rsi = ta.momentum.RSIIndicator(df["c"], window=14).rsi().iloc[-1]
     price = df["c"].iloc[-1]
 
-    if rsi < 30:
-        return 15
-    elif rsi > 70:
-        return 0
-    else:
-        return 7.5
+    score = 15 * (1 - (rsi / 100) ** 2)
+    return score
 
 # --- MACD ---
 def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9):
@@ -24,25 +20,35 @@ def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9):
         signalperiod=signalperiod
     )
     macd_val, signal_val, hist_val = macd[-1], signal[-1], hist[-1]
-    if macd_val > signal_val and hist_val > 0:
-        return 10
-    elif macd_val < signal_val and hist_val < 0:
-        return 0
-    else:
-        return 5
+    diff = macd_val - signal_val
+    
+    # Compute continuous score
+    score = 5 + 5 * (diff / max_diff) + 5 * (hist_val / max_hist)
+    
+    # Clamp score between 0 and 10
+    score = max(0, min(10, score))
+    
+    return score
 
 # --- Volume ---
 def volume_score(volumes, spike_ratio=1.5):
     vols = np.array(volumes, dtype=float)
-    if len(vols) < 5:
-        return 5
-    current, avg_vol = vols[-1], np.mean(vols[-20:])
-    if current > avg_vol * spike_ratio:
-        return 10
-    elif current < avg_vol * 0.7:
-        return 0
+        # Continuous scoring
+    ratio = current / avg_vol
+    
+    if ratio > spike_ratio:
+        # Scale from spike_ratio → 2*spike_ratio → 5–10
+        score = 5 + 5 * min((ratio - spike_ratio) / spike_ratio, 1)
+    elif ratio < low_ratio:
+        # Scale from 0 → low_ratio → 0–5
+        score = 5 * min(ratio / low_ratio, 1)
     else:
-        return 5
+        # Neutral
+        score = 5
+    
+    # Clamp to 0–10
+    score = max(0, min(10, score))
+    return score
 
 # --- Candlestick Patterns ---
 def candlestick_score(opens, highs, lows, closes):
@@ -77,12 +83,18 @@ def candlestick_score(opens, highs, lows, closes):
     bull_score = sum([b[-1] for b in bullish if b[-1] > 0])
     bear_score = sum([b[-1] for b in bearish if b[-1] < 0])
 
-    if bull_score > abs(bear_score) and bull_score > 0:
-        return 8
-    elif bear_score < 0 and abs(bear_score) > bull_score:
-        return 0
-    else:
-        return 4
+    # Avoid division by zero
+    total = bull_score + bear_score
+    if total == 0:
+        return max_score / 2  # Neutral
+
+    # Continuous score formula: weighted proportion of bullishness
+    score = max_score * (bull_score / total)
+
+    # Clamp between 0 and max_score
+    score = max(0, min(max_score, score))
+
+    return score
 
 # --- Bollinger Bands ---
 def bollinger_score(prices, period=20, nbdev=2):
@@ -99,18 +111,20 @@ def bollinger_score(prices, period=20, nbdev=2):
     cur = closes[-1]
     upper_val, lower_val = upper[-1], lower[-1]
 
-    # ✅ Prevent divide-by-zero
+  # Prevent divide-by-zero
     if (upper_val - lower_val) == 0:
-        return 3  # neutral — no volatility
+        return max_score / 2  # neutral
 
+    # Position within the band: 0 → at upper band, 1 → at lower band
     band_pos = (upper_val - cur) / (upper_val - lower_val)
+    
+    # Continuous score
+    score = max_score * band_pos
 
-    if band_pos > 0.8:
-        return 5   # near lower band → buy zone
-    elif band_pos < 0.2:
-        return 0   # near upper band → sell zone
-    else:
-        return 3   # middle → hold
+    # Clamp between 0 and max_score
+    score = max(0, min(max_score, score))
+
+    return score
 
 # --- MACD Divergence ---
 def macd_divergence_score(prices, lookback=5):
@@ -118,23 +132,27 @@ def macd_divergence_score(prices, lookback=5):
     macd, signal, _ = talib.MACD(closes)
     price_diff = closes[-1] - closes[-lookback]
     macd_diff = macd[-1] - macd[-lookback]
-    if price_diff < 0 and macd_diff > 0:
-        return 5
-    elif price_diff > 0 and macd_diff < 0:
-        return 0
-    else:
-        return 3
-
-# --- Moving Average Confluence ---
-def ma_confluence_score(prices):
-    closes = np.array(prices, dtype=float)
-    short = talib.SMA(closes, 20)
-    mid = talib.SMA(closes, 50)
-    long = talib.SMA(closes, 200)
-    if short[-1] > mid[-1] > long[-1] or short[-1] < mid[-1] < long[-1]:
-        return 2
-    else:
-        return 1
+    
+    # Compute divergence strength
+    divergence = -price_diff * macd_diff  # negative * positive → bullish, etc.
+    
+    # Scale score proportionally
+    # We'll normalize by the largest magnitude over lookback
+    price_range = np.max(closes[-lookback:]) - np.min(closes[-lookback:])
+    macd_range = np.max(macd[-lookback:]) - np.min(macd[-lookback:])
+    if price_range == 0 or macd_range == 0:
+        return max_score / 2  # neutral
+    
+    # Normalized divergence [-1, 1]
+    norm_div = divergence / (price_range * macd_range)
+    
+    # Convert to 0 → max_score
+    score = max_score * (0.5 + 0.5 * norm_div)  # 0.5 = neutral
+    
+    # Clamp between 0 and max_score
+    score = max(0, min(max_score, score))
+    
+    return score
 
 # --- Combined technical score ---
 def technical_score(df):
@@ -154,3 +172,4 @@ def technical_score(df):
         + ma_confluence_score(prices)
     )
     return total
+
