@@ -3,7 +3,6 @@ import pandas as pd
 from lib.vars import client
 from lib.vars import cfg
 
-    
 def get_data(symbol, interval="5m", limit=200):
     """Fetch recent candles for a given symbol."""
     candles = client.get_klines(symbol=symbol, interval=interval, limit=limit)
