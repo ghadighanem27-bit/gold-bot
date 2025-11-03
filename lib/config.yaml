@@ -9,5 +9,5 @@ trade_amount: 0.01
 timeframe: "5m"
 
 # Bot behavior
-loop_interval: 300 # in seconds (5 min)
+loop_interval: 1 # in seconds (5 min)
 
