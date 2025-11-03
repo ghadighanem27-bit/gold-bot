@@ -1,18 +1,15 @@
-# lib/telegram_bot.py
-import requests
+from telegram import Bot
 from lib.vars import cfg
+import asyncio
 
-def send_telegram_message(text):
-    """Send a message via your Telegram bot."""
-    token = cfg["telegram_bot_token"]
+bot = Bot(token=cfg["telegram_bot_token"])
+
+async def send_telegram_message(text):
     chat_id = cfg["telegram_chat_id"]
-
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
-
     try:
-        r = requests.post(url, data=payload)
-        if r.status_code != 200:
-            print(f"⚠️ Telegram error: {r.text}")
+        await bot.send_message(chat_id=chat_id, text=text)
     except Exception as e:
-        print(f"❌ Telegram send failed: {e}")
+        print(f"⚠️ Telegram error: {e}")
+
+def send_message_sync(text):
+    asyncio.run(send_telegram_message(text))
