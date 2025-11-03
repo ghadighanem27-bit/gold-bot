@@ -9,7 +9,7 @@ def log_signal(action, rsi, price):
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"{timestamp} | {action} | RSI={rsi:.2f} | Price={price}\n")
 
-position = None  # Global or tracked position state
+position = "NULL"  # Global or tracked position state
 
 def signals(score, price, symbol):
 
