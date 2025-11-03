@@ -43,5 +43,5 @@ def signals(score, price, symbol):
             position = "SELL"
 
     else:
-        print("⚪ HOLD | Price:{price} | score: {score:.2f}" )
+        print(f"⚪ HOLD | Price:{price} | score: {score:.2f}" )
         log_signal("⚪ HOLD", score, price)
