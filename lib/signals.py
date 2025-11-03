@@ -19,10 +19,10 @@ def signals(score, price, symbol):
             
             message =  ("📊 TRADE SIGNAL\n"
             "-----------------------------\n"
-            "Action     |    🟢 BUY\n"
+            "Action      |    🟢 BUY\n"
             f"Symbol    |    {symbol}\n"
-            f"Price     |    {price:.2f}\n"
-            f"Score     |    {score}\n"
+            f"Price        |    {price:.2f}\n"
+            f"Score       |    {score}\n"
             "-----------------------------")
             print(message)
             log_signal("🟢 BUY", score, price)
@@ -33,10 +33,10 @@ def signals(score, price, symbol):
         if position != "SELL":
             message =  ("📊 TRADE SIGNAL\n"
             "-----------------------------\n"
-            "Action     |    🔴 SELL\n"
+            "Action      |    🔴 SELL\n"
             f"Symbol    |    {symbol}\n"
-            f"Price     |    {price:.2f}\n"
-            f"Score     |    {score}\n"
+            f"Price        |    {price:.2f}\n"
+            f"Score       |    {score}\n"
             "-----------------------------")
             print(message)
             log_signal("🔴 SELL", score, price)
