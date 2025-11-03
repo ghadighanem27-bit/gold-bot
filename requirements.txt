@@ -4,3 +4,4 @@ numpy
 pyyaml
 ta
 TA-Lib
+python-telegram-bot
