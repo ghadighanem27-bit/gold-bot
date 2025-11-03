@@ -33,17 +33,24 @@ while True:
     score = technical_score(df)
     print(f"📊 Total technical score: {score:.2f}")
 
+
+    position = "NULL"
     # Simple example of acting on score
     if score >= 30:
-        print("🟢 BUY | Price: ", price)
-        log_signal("🟢 BUY", score, price)
+        if position != "BUY" :
+            print("🟢 BUY | Price: ", price)
+            log_signal("🟢 BUY", score, price)
+            position = "BUY"
     elif score <= 20:
-        print("🔴 SELL | Price: ", price)
-        log_signal("🔴 SELL", score, price)
+        if position != "SELL":
+            print("🔴 SELL | Price: ", price)
+            log_signal("🔴 SELL", score, price)
+            position = "SELL"
     else:
         print("⚪ HOLD | Price: ", price)
 
     time.sleep(loop_interval)
+
 
 
 
