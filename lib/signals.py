@@ -17,7 +17,7 @@ def signals(score, price, symbol):
     if score >= 30:
         if position != "BUY":
             
-            message =  "<b>📊 TRADE SIGNAL</b>\n"
+            message =  ("<b>📊 TRADE SIGNAL</b>\n"
             "<pre>"
             "-----------------------------\n"
             "Action   | 🟢 BUY\n"
@@ -26,7 +26,7 @@ def signals(score, price, symbol):
             f"Score    | {score}\n"
             f"Time     | {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
             "-----------------------------"
-            "</pre>"
+            "</pre>")
             print(message)
             log_signal("🟢 BUY", score, price)
             send_message_sync(message)
@@ -34,7 +34,7 @@ def signals(score, price, symbol):
 
     elif score <= 20:
         if position != "SELL":
-            message =  "<b>📊 TRADE SIGNAL</b>\n"
+            message =  ("<b>📊 TRADE SIGNAL</b>\n"
             "<pre>"
             "-----------------------------\n"
             "Action   | 🔴 SELL\n"
@@ -43,7 +43,7 @@ def signals(score, price, symbol):
             f"Score    | {score}\n"
             f"Time     | {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
             "-----------------------------"
-            "</pre>"
+            "</pre>")
             print(message)
             log_signal("🔴 SELL", score, price)
             send_message_sync(message)
