@@ -1,10 +1,11 @@
 from binance.client import Client
 import pandas as pd
 from lib.vars import client
+from lib.vars import cfg
 
+    
 def get_data(symbol, interval="5m", limit=200):
     """Fetch recent candles for a given symbol."""
-    symbol = cfg["symbol"].strip().upper().replace("/", "")
     candles = client.get_klines(symbol=symbol, interval=interval, limit=limit)
     df = pd.DataFrame(candles, columns=[
         "t","o","h","l","c","v","ct","qv","n","tb","tbv","ig"
