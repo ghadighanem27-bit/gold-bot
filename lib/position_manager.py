@@ -33,8 +33,8 @@ class PositionManager:
         self.pnl = 0.0
         self.save_state()
 
-        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )"
-                   f"TP: {take_profit}%      |         SL: {stop_loss}%")
+        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )\n"
+                   f"TP: {take_profit}%      |         SL: {stop_loss}%\n")
         send_message_sync(message)
         print(message)
 
@@ -49,17 +49,17 @@ class PositionManager:
 
         # --- Auto close conditions ---
         if pnl_percent >= self.take_profit:
-            print(f"🎯 Take Profit hit! +{pnl_percent:.2f}%")
+            print(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n")
             self.close_position(current_price)
 
         elif pnl_percent <= -self.stop_loss:
-            print(f"⛔ Stop Loss hit! {pnl_percent:.2f}%")
+            print(f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n")
             self.close_position(current_price)
 
 
     def close_position(self, price):
         if not self.position:
-            print("⚠️ No open position to close.")
+            print("⚠️ No open position to close.\n")
             return None
 
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
