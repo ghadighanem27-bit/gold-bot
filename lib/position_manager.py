@@ -23,14 +23,14 @@ class PositionManager:
 
     # ---------- Position management ----------
 
-    def open_position(self, side, price, quantity=0.0):
+    def open_position(self, side, price, quantity):
         self.position = side
         self.entry_price = price
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         self.quantity = quantity
         self.pnl = 0.0
         self.save_state()
-        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity})")
+        message = (f"✅ Opened {side} at {price:.2f} (qty: {self.quantity})")
         send_message_sync(message)
         print(message)
 
