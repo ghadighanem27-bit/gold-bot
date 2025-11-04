@@ -23,16 +23,39 @@ class PositionManager:
 
     # ---------- Position management ----------
 
-    def open_position(self, side, price, quantity = trade_amount):
+    def open_position(self, side, price, quantity = trade_amount, take_profit=1.0, stop_loss=0.5):
         self.position = side
         self.entry_price = price
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         self.quantity = quantity
+        self.take_profit = take_profit
+        self.stop_loss = stop_loss
         self.pnl = 0.0
         self.save_state()
-        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity})")
+
+        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )"
+                   f"TP: {take_profit}%      |         SL: {stop_loss}%")
         send_message_sync(message)
         print(message)
+
+
+    def check_auto_close(self, current_price):
+        if not self.position:
+            return
+
+        pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
+        if self.position == "SELL":
+            pnl_percent = -pnl_percent
+
+        # --- Auto close conditions ---
+        if pnl_percent >= self.take_profit:
+            print(f"🎯 Take Profit hit! +{pnl_percent:.2f}%")
+            self.close_position(current_price)
+
+        elif pnl_percent <= -self.stop_loss:
+            print(f"⛔ Stop Loss hit! {pnl_percent:.2f}%")
+            self.close_position(current_price)
+
 
     def close_position(self, price):
         if not self.position:
@@ -44,7 +67,8 @@ class PositionManager:
             pnl_percent = -pnl_percent
 
         self.pnl = pnl_percent
-        message = (f"💰 Closed {self.position} at {price:.2f} | PnL: {pnl_percent:.2f}%")
+        message = (f"💰 Closed {self.position} at {price:.2f}"
+                   f"PnL: {pnl_percent:.2f}% (TP={self.take_profit}%, SL={self.stop_loss}%)")
         send_message_sync(message)
 
         # Reset position after close
