@@ -10,12 +10,13 @@ def get_rsi(df):
 
     atr = ta.volatility.AverageTrueRange(high=df["h"], low=df["l"], close=df["c"],window=14).average_true_range().iloc[-1]
 
-    rsi_power = 1.4 + ((atr - 5) / (20-5)) * (1.6-1.4)
+    atr_ratio = (atr / price)*100
+    rsi_power = 1.4 + ((atr_ratio - 0.1) / (2-0.1)) * (1.6 - 1.4)
     
 
     score = 15 * (1 - (rsi / 100) ** rsi_power)
-    print(f" rsi power {rsi_power:.2f} | rsi score {score:.2f}")
-    return score, rsi_power
+    print(f" RSI | power {rsi_power:.2f} |  score {score:.2f}")
+    return score
 
 # --- MACD ---
 def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20):
@@ -37,6 +38,8 @@ def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20):
     
     # Clamp score between 0 and 10
     score = max(0, min(10, score))
+
+    print(f" MACD | score {score:.2f}")
     
     return score
 
@@ -66,6 +69,7 @@ def volume_score(volumes, spike_ratio=1.5):
     
     # Clamp to 0–10
     score = max(0, min(10, score))
+    print(f" Volume | score {score:.2f}")
     return score
 
 # --- Candlestick Patterns ---
@@ -112,7 +116,7 @@ def candlestick_score(opens, highs, lows, closes):
 
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
-
+    print(f" Candle Stick | score {score:.2f}")
     return score
 
 # --- Bollinger Bands ---
@@ -143,7 +147,7 @@ def bollinger_score(prices, period=20, nbdev=2):
 
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
-
+    print(f" Bollinger | score {score:.2f}")
     return score
 
 # --- MACD Divergence ---
@@ -173,7 +177,7 @@ def macd_divergence_score(prices, lookback=5):
     
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
-    
+    print(f" MACD Divergence | score {score:.2f}")
     return score
 
 
@@ -194,6 +198,7 @@ def ma_confluence_score(prices):
     else:
         score = 5  # neutre ou tendance incertaine
 
+    print(f" MA Confluence | score {score:.2f}")
     return score
 
 # --- Combined technical score ---
