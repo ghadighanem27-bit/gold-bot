@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+from lib.telegram_bot import send_message_sync
 
 class PositionManager:
     """
@@ -28,7 +29,9 @@ class PositionManager:
         self.quantity = quantity
         self.pnl = 0.0
         self.save_state()
-        print(f"✅ Opened {side} at {price:.2f} (qty: {quantity})")
+        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity})")
+        send_message_sync(message)
+        print(message)
 
     def close_position(self, price):
         if not self.position:
@@ -40,7 +43,8 @@ class PositionManager:
             pnl_percent = -pnl_percent
 
         self.pnl = pnl_percent
-        print(f"💰 Closed {self.position} at {price:.2f} | PnL: {pnl_percent:.2f}%")
+        message = (f"💰 Closed {self.position} at {price:.2f} | PnL: {pnl_percent:.2f}%")
+        send_message_sync(message)
 
         # Reset position after close
         self.reset()
