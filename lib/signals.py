@@ -1,6 +1,7 @@
 import datetime
-from telegram import Bot
 from lib.telegram_bot import send_message_sync
+"""from lib.indicators import get_rsi, get_macd, volume_score
+from lib.vars import symbol"""
 
 
 def log_signal(action, rsi, price):
@@ -53,3 +54,20 @@ def signals(score, price, symbol):
     else:
         print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
         log_signal("⚪ HOLD", score, price)
+
+"""
+def scores(score):
+    score_rsi, rsi_power = get_rsi(df)
+    score_macd = get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20)
+    score_volume = volume_score(volumes, spike_ratio=1.5)
+
+    message = ("⭕ TRADE SCORING\n"
+            "-----------------------------\n"
+            f"Total     |    {score:.2f}\n"
+            f"RSI Score/Power |  {score_rsi:.2f} | {rsi_power:.2f}\n"
+            f"MACD Score  |    {score_macd:.2f}\n"
+            f"Score       |    {score_volume:.2f}\n"
+            "-----------------------------")
+"""
+
+

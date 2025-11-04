@@ -8,8 +8,14 @@ def get_rsi(df):
     rsi = ta.momentum.RSIIndicator(df["c"], window=14).rsi().iloc[-1]
     price = df["c"].iloc[-1]
 
-    score = 15 * (1 - (rsi / 100) ** 2)
-    return score
+    atr = ta.volatility.AverageTrueRange(high=df["h"], low=df["l"], close=df["c"],window=14).average_true_range().iloc[-1]
+
+    rsi_power = 1.4 + ((atr - 5) / (20-5)) * (1.6-1.4)
+    
+
+    score = 15 * (1 - (rsi / 100) ** rsi_power)
+    print(f" rsi power {rsi_power:.2f} | rsi score {score:.2f}")
+    return score, rsi_power
 
 # --- MACD ---
 def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20):
