@@ -16,7 +16,6 @@ class PositionManager:
         self.entry_price = 0.0
         self.entry_time = None
         self.quantity = trade_amount
-        print(f"trade amount {trade_amount}")
         self.pnl = 0.0
 
         # Try to load last saved state (for persistence)
