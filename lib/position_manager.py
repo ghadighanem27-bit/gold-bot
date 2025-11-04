@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 from lib.telegram_bot import send_message_sync
+from lib.vars import trade_amount
 
 class PositionManager:
     """
@@ -14,7 +15,8 @@ class PositionManager:
         self.position = None       # "BUY", "SELL", or None
         self.entry_price = 0.0
         self.entry_time = None
-        self.quantity = 0.0
+        self.quantity = trade_amount
+        print(f"trade amount {trade_amount}")
         self.pnl = 0.0
 
         # Try to load last saved state (for persistence)

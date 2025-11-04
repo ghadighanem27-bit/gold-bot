@@ -16,6 +16,7 @@ client.API_URL = cfg["base_url"]
 symbol = cfg["symbol"]
 trade_amount = cfg["trade_amount"]
 timeframe = cfg["timeframe"]
+trade_amount = cfg["trade_amount"]
 
 # --- Bot runtime config ---
 loop_interval = cfg.get("loop_interval", 300)
