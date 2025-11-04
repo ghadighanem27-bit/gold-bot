@@ -10,9 +10,16 @@ def get_rsi(df):
 
     atr = ta.volatility.AverageTrueRange(high=df["h"], low=df["l"], close=df["c"],window=14).average_true_range().iloc[-1]
 
-    atr_ratio = (atr / price)*100
-    rsi_power = 1.4 + ((atr_ratio - 0.1) / (2-0.1)) * (1.6 - 1.4)
+    atr_ratio = (atr / price)*100 #ATR as % of price
+
+    atr_min = 0.01 #calm
+    atr_max = 2 #volatile
+
+    #linear scaling
+    rsi_power = 1.4 + ((atr_ratio - atr_min) / (atr_max-atr_min)) * (1.6 - 1.4)
     
+    #clamp
+    rsi_power = max(min(rsi_power, 1.6), 1.4)
 
     score = 15 * (1 - (rsi / 100) ** rsi_power)
     print(f" RSI | power {rsi_power:.2f} |  score {score:.2f}")
