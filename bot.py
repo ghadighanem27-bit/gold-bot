@@ -3,6 +3,7 @@ import datetime
 import os
 import sys
 import yaml
+from lib.position_manager import PositionManager
 
 # Internal imports
 from lib.market_data import get_data
@@ -15,6 +16,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 print(f"🚀 Starting trading bot for {symbol}")
 position = "NULL"
+pm = PositionManager()
 
 while True:
     df = get_data(symbol)
