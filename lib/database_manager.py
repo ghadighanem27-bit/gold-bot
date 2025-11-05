@@ -59,3 +59,28 @@ def get_stats():
         "average_pnl": totals["avg_pnl"],
         "winrate": winrate
     }
+
+def get_stats():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Total trades and average PnL
+    cur.execute("SELECT COUNT(*) AS total, AVG(pnl_percent) AS avg_pnl FROM trades")
+    totals = cur.fetchone()
+    total_trades = totals["total"] or 0
+    avg_pnl = totals["avg_pnl"] or 0
+
+    # Winrate
+    cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
+    wins = cur.fetchone()["wins"] or 0
+    winrate = (wins / total_trades * 100) if total_trades > 0 else 0
+
+    cur.close()
+    conn.close()
+
+    return {
+        "total_trades": total_trades,
+        "avg_pnl": avg_pnl,
+        "winrate": winrate
+    }
+
