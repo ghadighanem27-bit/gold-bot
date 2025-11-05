@@ -17,3 +17,9 @@ timeframe: "5m"
 # Bot behavior
 loop_interval: 300 # in seconds (5 min)
 
+# PostgreSQL Config
+DB_HOST: "gondola.proxy.rlwy.net"
+DB_NAME: "railway"
+DB_USER: "postgres"
+DB_PASSWORD: "UhvAphSlEtxbGfhqlqwfVadeKdOznBWc"
+DB_PORT: 49593
