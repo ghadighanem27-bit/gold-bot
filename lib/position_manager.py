@@ -112,4 +112,4 @@ class PositionManager:
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")
 
-pm = PositionManager()
+pm = PositionManager
