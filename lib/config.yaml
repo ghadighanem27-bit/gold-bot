@@ -1,7 +1,7 @@
 # Binance Config
 api_key: "ftQsSUG05ozKrrINbT31fDzmSe3hYX6wNaHznU8qXk03zuplNVSERbBaqvSXbpo2"
 api_secret: "PBbKS&UYgwqueyG8D1JBMdoLKYSC&ojKfP17g5ecDRKDjy7yGOUKDyK1HULvQI4"
-base_url: "https://testnet.binance.vision"
+base_url: "https://testnet.binance.vision/api"
 
 # Telegram config
 telegram_bot_token: "7743046161:AAG1P4Yo6lZZ7t1Auo10Aeyp8YFdkvL5KNw"
