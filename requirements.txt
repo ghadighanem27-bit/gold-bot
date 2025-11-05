@@ -5,3 +5,4 @@ pyyaml
 ta
 TA-Lib
 python-telegram-bot
+psycopg2-binary
