@@ -23,6 +23,9 @@ symbol = cfg["symbol"]
 trade_amount = cfg["trade_amount"]
 timeframe = cfg["timeframe"]
 trade_amount = cfg["trade_amount"]
+take_profit = cfg["take_profit"]
+stop_loss = cfg["stop_loss"]
+loop_interval = cfg["loop_interval"]
 
 # --- Bot runtime config ---
 loop_interval = cfg.get("loop_interval", 300)
