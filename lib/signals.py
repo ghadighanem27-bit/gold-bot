@@ -1,22 +1,15 @@
 import datetime
 from lib.telegram_bot import send_message_sync
 from lib.position_manager import PositionManager
-from lib.vars import db_conn, db_cursor
-"""from lib.indicators import get_rsi, get_macd, volume_score
-from lib.vars import symbol"""
+from lib.database_manager import record_trade  # ✅ import correct recorder
 
-
-def log_signal(action, rsi, price):
+def log_signal(action, score, price):
     """Save each BUY/SELL signal to a text file (UTF-8 safe)."""
     with open("trade_log.txt", "a", encoding="utf-8") as f:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        f.write(f"{timestamp} | {action} | RSI={rsi:.2f} | Price={price}\n")
+        f.write(f"{timestamp} | {action} | Score={score:.2f} | Price={price}\n")
 
-position = "NULL"  # Global or tracked position state
-
-def signals(score, price, symbol, pm):
-    
-    global position
+def signals(score, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):
     symbol = symbol.strip().upper()
 
     # --- BUY logic ---
@@ -33,16 +26,20 @@ def signals(score, price, symbol, pm):
                 "-----------------------------"
             )
             log_signal("🟢 BUY", score, price)
-            pm.position = "BUY"
             send_message_sync(message)
-            entry_time = datetime
-        else:
-            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
-            log_signal("⚪ HOLD", score, price)
+
+            # ✅ Open position
+            pm.open_position(
+                side="BUY",
+                price=price,
+                quantity=trade_amount,
+                take_profit=take_profit,
+                stop_loss=stop_loss
+            )
 
     # --- SELL logic ---
     elif score <= 25:
-        if pm.position == "BUY":             # Only close if a buy exists
+        if pm.position == "BUY":  # Only close if a buy exists
             print(f"🔴 SELL | Price:{price} | Score: {score:.2f}")
             message = (
                 "📊 TRADE SIGNAL\n"
@@ -54,41 +51,23 @@ def signals(score, price, symbol, pm):
                 "-----------------------------"
             )
             log_signal("🔴 SELL", score, price)
-            pm.position = "SELL"
             send_message_sync(message)
-            exit_time = datetime
 
-            db_cursor.execute(
-                self.symbol,
-                self.entry_price,
-                price,
-                pnl_percent,
-                self.exit_time,
-                exit_time,
+            # ✅ Close position and get PnL %
+            pnl_percent = pm.close_position(price)
+
+            # ✅ Record trade in PostgreSQL
+            record_trade(
+                symbol=symbol,
+                side="BUY",
+                entry_price=pm.entry_price,
+                exit_price=price,
+                pnl_percent=pnl_percent,
+                tp_hit=(pnl_percent >= take_profit * 100),
+                sl_hit=(pnl_percent <= -stop_loss * 100)
             )
-        else:
-            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
-            log_signal("⚪ HOLD", score, price)
-        
 
-
+    # --- HOLD logic ---
     else:
-        print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
+        print(f"⚪ HOLD | Price:{price} | Score: {score:.2f}")
         log_signal("⚪ HOLD", score, price)
-"""
-def scores(score):
-    score_rsi, rsi_power = get_rsi(df)
-    score_macd = get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20)
-    score_volume = volume_score(volumes, spike_ratio=1.5)
-
-    message = ("⭕ TRADE SCORING\n"
-            "-----------------------------\n"
-            f"Total     |    {score:.2f}\n"
-            f"RSI Score/Power |  {score_rsi:.2f} | {rsi_power:.2f}\n"
-            f"MACD Score  |    {score_macd:.2f}\n"
-            f"Score       |    {score_volume:.2f}\n"
-            "-----------------------------")
-"""
-
-
-
