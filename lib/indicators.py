@@ -1,7 +1,6 @@
 import numpy as np
 import talib
 import ta
-from .signals import log_signal
 
 # --- RSI ---
 def get_rsi(df):
