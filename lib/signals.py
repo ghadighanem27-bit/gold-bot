@@ -17,6 +17,19 @@ def signals(score, price, symbol):
     global position
     symbol = symbol.strip().upper()
 
+    # --- BUY logic ---
+    if score >= 38:
+        if pm.position != "BUY":
+            print(f"🟢 BUY | Price:{price} | Score: {score:.2f}")
+            message = (
+                "📊 TRADE SIGNAL\n"
+                "-----------------------------\n"
+                "Action      |    🟢 BUY\n"
+                f"Symbol    |    {symbol}\n"
+                f"Price        |    {price:.2f}\n"
+                f"Score       |    {score:.2f}\n"
+                "-----------------------------"
+            )
     if score >= 30:
         if position != "BUY":
             
@@ -35,6 +48,19 @@ def signals(score, price, symbol):
             print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
 
 
+    # --- SELL logic ---
+    elif score <= 25:
+        if pm.position == "BUY":             # Only close if a buy exists
+            print(f"🔴 SELL | Price:{price} | Score: {score:.2f}")
+            message = (
+                "📊 TRADE SIGNAL\n"
+                "-----------------------------\n"
+                "Action      |    🔴 SELL\n"
+                f"Symbol    |    {symbol}\n"
+                f"Price        |    {price:.2f}\n"
+                f"Score       |    {score:.2f}\n"
+                "-----------------------------"
+            )
     elif score <= 20:
         if position != "SELL":
             print(f"🔴 SELL | Price:{price} | score: {score:.2f}")
