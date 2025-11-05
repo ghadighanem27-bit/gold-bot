@@ -24,7 +24,7 @@ while True:
     score = technical_score(df)
 
     pm.check_auto_close(price) #check if TP or SL hit
-    signals(score, price, symbol)
+    signals(score, price, symbol, pm)
 
     
 

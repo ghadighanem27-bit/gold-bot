@@ -13,7 +13,7 @@ def log_signal(action, rsi, price):
 
 position = "NULL"  # Global or tracked position state
 
-def signals(score, price, symbol):
+def signals(score, price, symbol, pm):
     
     global position
     symbol = symbol.strip().upper()

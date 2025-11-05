@@ -111,5 +111,3 @@ class PositionManager:
                     self.pnl = state.get("pnl", 0.0)
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")
-
-pm = PositionManager
