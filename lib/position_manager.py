@@ -1,7 +1,7 @@
 import datetime
 import json
 import os
-from lib.telegram_bot import send_message_sync
+from telegram_bot import send_message_sync
 from lib.vars import trade_amount
 
 class PositionManager:
