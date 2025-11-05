@@ -30,23 +30,6 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
-    if score >= 30:
-        if position != "BUY":
-            
-            print(f"🟢 BUY | Price:{price} | score: {score:.2f}")
-            message =  ("📊 TRADE SIGNAL\n"
-            "-----------------------------\n"
-            "Action      |    🟢 BUY\n"
-            f"Symbol    |    {symbol}\n"
-            f"Price        |    {price:.2f}\n"
-            f"Score       |    {score:.2f}\n"
-            "-----------------------------")
-            log_signal("🟢 BUY", score, price)
-            send_message_sync(message)
-            position = "BUY"
-        else:
-            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
-
 
     # --- SELL logic ---
     elif score <= 25:
@@ -61,21 +44,6 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
-    elif score <= 20:
-        if position != "SELL":
-            print(f"🔴 SELL | Price:{price} | score: {score:.2f}")
-            message =  ("📊 TRADE SIGNAL\n"
-            "-----------------------------\n"
-            "Action      |    🔴 SELL\n"
-            f"Symbol    |    {symbol}\n"
-            f"Price        |    {price:.2f}\n"
-            f"Score       |    {score:.2f}\n"
-            "-----------------------------")
-            log_signal("🔴 SELL", score, price)
-            send_message_sync(message)
-            position = "SELL"
-        else:
-            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
 
     else:
         print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
@@ -94,5 +62,6 @@ def scores(score):
             f"Score       |    {score_volume:.2f}\n"
             "-----------------------------")
 """
+
 
 
