@@ -1,7 +1,5 @@
 import datetime
 from lib.telegram_bot import send_message_sync
-from lib.position_manager import PositionManager
-pm = PositionManager()
 """from lib.indicators import get_rsi, get_macd, volume_score
 from lib.vars import symbol"""
 
@@ -15,6 +13,8 @@ def log_signal(action, rsi, price):
 position = "NULL"  # Global or tracked position state
 
 def signals(score, price, symbol):
+    
+    global position
     symbol = symbol.strip().upper()
 
     # --- BUY logic ---
@@ -30,12 +30,23 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
+    if score >= 30:
+        if position != "BUY":
+            
+            print(f"🟢 BUY | Price:{price} | score: {score:.2f}")
+            message =  ("📊 TRADE SIGNAL\n"
+            "-----------------------------\n"
+            "Action      |    🟢 BUY\n"
+            f"Symbol    |    {symbol}\n"
+            f"Price        |    {price:.2f}\n"
+            f"Score       |    {score:.2f}\n"
+            "-----------------------------")
             log_signal("🟢 BUY", score, price)
             send_message_sync(message)
-            pm.open_position("BUY", price)   # ✅ Open via manager
-
+            position = "BUY"
         else:
-            print(f"⚪ HOLD | Price:{price} | Score: {score:.2f}")
+            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
+
 
     # --- SELL logic ---
     elif score <= 25:
@@ -50,19 +61,25 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
+    elif score <= 20:
+        if position != "SELL":
+            print(f"🔴 SELL | Price:{price} | score: {score:.2f}")
+            message =  ("📊 TRADE SIGNAL\n"
+            "-----------------------------\n"
+            "Action      |    🔴 SELL\n"
+            f"Symbol    |    {symbol}\n"
+            f"Price        |    {price:.2f}\n"
+            f"Score       |    {score:.2f}\n"
+            "-----------------------------")
             log_signal("🔴 SELL", score, price)
             send_message_sync(message)
-            pm.close_position(price)         # ✅ Close via manager
-
+            position = "SELL"
         else:
-            print(f"⚪ HOLD | Price:{price} | Score: {score:.2f}")
+            print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
 
-    # --- HOLD logic ---
     else:
-        print(f"⚪ HOLD | Price:{price} | Score: {score:.2f}")
+        print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
         log_signal("⚪ HOLD", score, price)
-
-
 """
 def scores(score):
     score_rsi, rsi_power = get_rsi(df)
