@@ -12,6 +12,12 @@ with open(CONFIG_PATH, "r") as f:
 client = Client(cfg["api_key"], cfg["api_secret"], testnet=True)
 client.API_URL = cfg["base_url"]
 
+# Désactive le ping automatique
+try:
+    client.ping()
+except Exception as e:
+    print(f"⚠️ Binance Testnet ping failed: {e}")
+
 # --- Trading parameters ---
 symbol = cfg["symbol"]
 trade_amount = cfg["trade_amount"]
