@@ -1,6 +1,6 @@
 import datetime
 from lib.telegram_bot import send_message_sync
-from lib.position_manager import pm
+from lib.position_manager import PositionManager
 """from lib.indicators import get_rsi, get_macd, volume_score
 from lib.vars import symbol"""
 
