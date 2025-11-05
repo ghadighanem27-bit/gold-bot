@@ -18,8 +18,6 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 print(f"🚀 Starting trading bot for {symbol}")
 
-#allow commands via telegram bot
-start_telegram_listener()
 
 # Initialize position manager
 pm = PositionManager()

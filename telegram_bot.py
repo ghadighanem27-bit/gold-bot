@@ -31,6 +31,9 @@ def send_message_sync(text):
     except RuntimeError as e:
         print(f"⚠️ Telegram loop error: {e}")
 
+# --- /start command ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🤖 Hello! I'm your trading bot interface. Type /stats to see performance.")
 
 # --- Command: /stats ---
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,3 +54,18 @@ def start_telegram_listener():
     app.add_handler(CommandHandler("stats", stats_command))
     print("🤖 Telegram listener started...")
     app.run_polling()
+
+# --- Create and run the bot ---
+def main():
+    if not cfg["telegram_bot_token"]:
+        raise ValueError("TELEGRAM_BOT_TOKEN not found in environment!")
+
+    app = Application.builder().token(cfg["telegram_bot_token"]).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("stats", stats_command))
+
+    print("🤖 Telegram bot server is running... (listening for /stats)")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
