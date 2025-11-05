@@ -49,5 +49,5 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def start_telegram_listener():
     app = Application.builder().token(bot).build()
     app.add_handler(CommandHandler("stats", stats_command))
-    print("🤖 Telegram listener started (waiting for /stats)...")
+    print("🤖 Telegram listener started...")
     app.run_polling()

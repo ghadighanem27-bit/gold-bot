@@ -9,6 +9,7 @@ from lib.market_data import get_data
 from lib.indicators import technical_score
 from lib.signals import log_signal, signals
 from lib.position_manager import PositionManager
+from lib.telegram_bot.py import start_telegram_listener
 from lib.database_manager import record_trade
 from lib.vars import client, symbol, loop_interval, trade_amount, take_profit, stop_loss
 
@@ -16,6 +17,9 @@ from lib.vars import client, symbol, loop_interval, trade_amount, take_profit, s
 sys.stdout.reconfigure(encoding='utf-8')
 
 print(f"🚀 Starting trading bot for {symbol}")
+
+#allow commands via telegram bot
+start_telegram_listener()
 
 # Initialize position manager
 pm = PositionManager()
