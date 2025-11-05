@@ -1,5 +1,6 @@
 import datetime
 from lib.telegram_bot import send_message_sync
+from lib.position_manager import pm
 """from lib.indicators import get_rsi, get_macd, volume_score
 from lib.vars import symbol"""
 
@@ -30,6 +31,8 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
+            log_signal("🟢 BUY", score, price)
+            send_message_sync(message)
 
     # --- SELL logic ---
     elif score <= 25:
@@ -44,6 +47,9 @@ def signals(score, price, symbol):
                 f"Score       |    {score:.2f}\n"
                 "-----------------------------"
             )
+            log_signal("🔴 SELL", score, price)
+            send_message_sync(message)
+
 
     else:
         print(f"⚪ HOLD | Price:{price} | score: {score:.2f}")
