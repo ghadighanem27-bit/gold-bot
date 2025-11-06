@@ -42,20 +42,28 @@ def get_stats():
     conn = get_connection()
     cur = conn.cursor()
 
-    # Total trades + average pnl
-    cur.execute("SELECT COUNT(*) AS total, AVG(pnl_percent) AS avg_pnl FROM trades")
-    totals = cur.fetchone() or {"total": 0, "avg_pnl": 0}
-    total_trades = totals["total"] or 0
-    avg_pnl = totals["avg_pnl"] or 0
+    try:
+        # Total trades + avg pnl
+        cur.execute("SELECT COUNT(*) AS total, COALESCE(AVG(pnl_percent), 0) AS avg_pnl FROM trades")
+        totals = cur.fetchone() or {"total": 0, "avg_pnl": 0}
+        total_trades = totals.get("total", 0)
+        avg_pnl = totals.get("avg_pnl", 0)
 
-    # Winrate
-    cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
-    wins = cur.fetchone() or {"wins": 0}
-    winrate = (wins["wins"] / total_trades * 100) if total_trades > 0 else 0
+        # Winrate
+        cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
+        wins = cur.fetchone() or {"wins": 0}
+        winrate = (wins.get("wins", 0) / total_trades * 100) if total_trades > 0 else 0
 
-    cur.close()
-    conn.close()
+    except Exception as e:
+        print(f"⚠️ Database error in get_stats(): {e}")
+        total_trades, avg_pnl, winrate = 0, 0, 0
+
+    finally:
+        cur.close()
+        conn.close()
 
     return {
         "total_trades": total_trades,
+        "avg_pnl": avg_pnl,
+        "winrate": winrate
     }
