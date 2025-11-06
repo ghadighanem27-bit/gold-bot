@@ -33,8 +33,8 @@ class PositionManager:
         self.pnl = 0.0
         self.save_state()
 
-        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )\n"
-                   f"TP: {take_profit}%      |         SL: {stop_loss}%\n")
+        message = (f"✅ Opened {side} at {price * 100:.2f} (qty: {quantity} )\n"
+                   f"TP: {take_profit * 100}%      |         SL: {stop_loss * 100}%\n")
         send_message_sync(message)
         print(message)
 
@@ -68,7 +68,7 @@ class PositionManager:
 
         self.pnl = pnl_percent
         message = (f"💰 Closed {self.position} at {price:.2f}"
-                   f"PnL: {pnl_percent:.2f}% (TP={self.take_profit}%, SL={self.stop_loss}%)")
+                   f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)")
         send_message_sync(message)
 
         # Reset position after close
