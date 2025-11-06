@@ -67,3 +67,6 @@ def main():
 
     print("🤖 Telegram bot server is running... (listening for /stats)")
     app.run_polling()
+
+if __name__ == "__main__":
+    main()
