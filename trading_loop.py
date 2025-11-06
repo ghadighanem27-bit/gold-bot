@@ -1,26 +1,42 @@
-import time
+# lib/telegram_bot.py
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+from lib.database_manager import get_stats
+from lib.vars import cfg
+import asyncio
 
-from lib.market_data import get_data
-from lib.indicators import technical_score
-from lib.signals import log_signal, signals
-from lib.position_manager import PositionManager
-from lib.database_manager import record_trade
-from lib.vars import symbol, loop_interval, trade_amount, take_profit, stop_loss
+# --- Command: /start ---
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🤖 Hello! I'm your trading bot.\n"
+        "Type /stats to see performance metrics 📊"
+    )
 
-# Initialize position manager
-pm = PositionManager()
+# --- Command: /stats ---
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    stats = get_stats()
+    message = (
+        "📊 <b>BOT PERFORMANCE STATS</b>\n"
+        "-----------------------------\n"
+        f"🏆 Winrate: <b>{stats['winrate']:.2f}%</b>\n"
+        f"📈 Average PnL: <b>{stats['avg_pnl']:.2f}%</b>\n"
+        f"📊 Total Trades: <b>{stats['total_trades']}</b>\n"
+        "-----------------------------"
+    )
+    await update.message.reply_text(message, parse_mode="HTML")
 
-while True:
-     # 1️⃣ Fetch latest data
-    df = get_data(symbol)
-    price = df['c'].iloc[-1]
-    score = technical_score(df)
+# --- Function to start Telegram listener ---
+def start_telegram_listener():
+    print("🤖 Telegram listener started...")
 
-    # 2️⃣ Check open position (for TP/SL auto close)
-    pm.check_auto_close(price)
+    async def main():
+        app = Application.builder().token(cfg["telegram_bot_token"]).build()
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(CommandHandler("stats", stats_command))
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(drop_pending_updates=True)
+        # Keep bot alive
+        await asyncio.Event().wait()
 
-    # 3️⃣ Evaluate signals
-    signals(score, price, symbol, pm, trade_amount, take_profit, stop_loss)
-
-    # 4️⃣ Wait until next iteration
-    time.sleep(loop_interval)
+    asyncio.run(main())
