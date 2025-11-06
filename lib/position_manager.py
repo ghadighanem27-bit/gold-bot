@@ -49,12 +49,14 @@ class PositionManager:
 
         # --- Auto close conditions ---
         if pnl_percent >= self.take_profit:
-            print(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n")
+            message = (f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n")
             self.close_position(current_price)
+            send_message_sync(message)
 
         elif pnl_percent <= -self.stop_loss:
-            print(f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n")
+            message = (f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n")
             self.close_position(current_price)
+            send_message_sync(message)
 
 
     def close_position(self, price):
