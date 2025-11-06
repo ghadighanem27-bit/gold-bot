@@ -10,18 +10,17 @@ from lib.vars import symbol, loop_interval, trade_amount, take_profit, stop_loss
 # Initialize position manager
 pm = PositionManager()
 
-def trading_loop():
-    while True:
-        # 1️⃣ Fetch latest data
-        df = get_data(symbol)
-        price = df['c'].iloc[-1]
-        score = technical_score(df)
+while True:
+     # 1️⃣ Fetch latest data
+    df = get_data(symbol)
+    price = df['c'].iloc[-1]
+    score = technical_score(df)
 
-        # 2️⃣ Check open position (for TP/SL auto close)
-        pm.check_auto_close(price)
+    # 2️⃣ Check open position (for TP/SL auto close)
+    pm.check_auto_close(price)
 
-        # 3️⃣ Evaluate signals
-        signals(score, price, symbol, pm, trade_amount, take_profit, stop_loss)
+    # 3️⃣ Evaluate signals
+    signals(score, price, symbol, pm, trade_amount, take_profit, stop_loss)
 
-        # 4️⃣ Wait until next iteration
-        time.sleep(loop_interval)
+    # 4️⃣ Wait until next iteration
+    time.sleep(loop_interval)
