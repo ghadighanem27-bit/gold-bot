@@ -10,8 +10,8 @@ telegram_chat_id: "1131830593"
 # Trading parameters
 symbol: ETHUSDT
 trade_amount: 0.01
-take_profit: 0.05
-stop_loss: 0.1
+take_profit: 0.015
+stop_loss: 0.01
 timeframe: "5m"
 
 # Bot behavior

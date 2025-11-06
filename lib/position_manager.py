@@ -1,8 +1,11 @@
 import datetime
 import json
 import os
+
+
 from telegram_bot import send_message_sync
-from lib.vars import trade_amount
+from lib.vars import trade_amount, cfg
+from lib.database_manager import record_trade
 
 class PositionManager:
     """
@@ -70,8 +73,17 @@ class PositionManager:
 
         self.pnl = pnl_percent
         message = (f"💰 Closed {self.position} at {price:.2f}\n"
-                   f" PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)")
+                   f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)")
         send_message_sync(message)
+        record_trade(
+        symbol=cfg["symbol"],
+        side=self.position,
+        entry_price=self.entry_price,
+        exit_price=price,
+        pnl_percent=pnl_percent,
+        tp_hit=(pnl_percent >= self.take_profit),
+        sl_hit=(pnl_percent <= -self.stop_loss)
+        )
 
         # Reset position after close
         self.reset()

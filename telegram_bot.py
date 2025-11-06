@@ -35,6 +35,7 @@ def send_message_sync(text):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🤖 Hello! I'm your trading bot interface. Type /stats to see performance.")
 
+
 # --- Command: /stats ---
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats = get_stats()

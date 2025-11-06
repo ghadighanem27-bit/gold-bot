@@ -56,17 +56,6 @@ def signals(score, price, symbol, pm, trade_amount=None, take_profit=None, stop_
             # ✅ Close position and get PnL %
             pnl_percent = pm.close_position(price)
 
-            # ✅ Record trade in PostgreSQL
-            record_trade(
-                symbol=symbol,
-                side="BUY",
-                entry_price=pm.entry_price,
-                exit_price=price,
-                pnl_percent=pnl_percent,
-                tp_hit=(pnl_percent >= take_profit * 100),
-                sl_hit=(pnl_percent <= -stop_loss * 100)
-            )
-
     # --- HOLD logic ---
     else:
         print(f"⚪ HOLD | Price:{price} | Score: {score:.2f}")

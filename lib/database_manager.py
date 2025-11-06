@@ -3,10 +3,19 @@ from psycopg2.extras import RealDictCursor
 import datetime
 import os
 
+
+from lib.vars import cfg
+
 # --- Connect to PostgreSQL ---
 def get_connection():
-    url = os.getenv("DATABASE_URL")
-    return psycopg2.connect(url, cursor_factory=RealDictCursor)
+    return psycopg2.connect(
+        host=cfg["DB_HOST"],
+        dbname=cfg["DB_NAME"],
+        user=cfg["DB_USER"],
+        password=cfg["DB_PASSWORD"],
+        port=cfg["DB_PORT"],
+        cursor_factory=RealDictCursor
+    )
 
 
 # --- Record a trade ---

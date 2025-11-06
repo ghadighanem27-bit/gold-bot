@@ -3,6 +3,7 @@ import datetime
 import os
 import sys
 import yaml
+from threading import Thread
 
 # Internal imports
 from lib.market_data import get_data
@@ -11,12 +12,15 @@ from lib.signals import log_signal, signals
 from lib.position_manager import PositionManager
 from lib.database_manager import record_trade
 from lib.vars import symbol, loop_interval, trade_amount, take_profit, stop_loss
+from telegram_bot import start_telegram_listener
 
 # Allow emojis in console
 sys.stdout.reconfigure(encoding='utf-8')
 
 print(f"🚀 Starting trading bot for {symbol}")
 
+# ✅ Start Telegram listener in a background thread
+Thread(target=start_telegram_listener, daemon=True).start()
 
 # Initialize position manager
 pm = PositionManager()
