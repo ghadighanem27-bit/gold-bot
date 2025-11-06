@@ -33,7 +33,7 @@ class PositionManager:
         self.pnl = 0.0
         self.save_state()
 
-        message = (f"✅ Opened {side} at {price * 100:.2f} (qty: {quantity} )\n"
+        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )\n"
                    f"TP: {take_profit * 100}%      |         SL: {stop_loss * 100}%\n")
         send_message_sync(message)
         print(message)
