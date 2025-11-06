@@ -1,19 +1,12 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
-import os
+from lib.vars import cfg  # still okay to load YAML
 
-
-from lib.vars import cfg
-
-# --- Connect to PostgreSQL ---
+# --- Connect using full DATABASE_URL ---
 def get_connection():
     return psycopg2.connect(
-        host=cfg["DB_HOST"],
-        dbname=cfg["DB_NAME"],
-        user=cfg["DB_USER"],
-        password=cfg["DB_PASSWORD"],
-        port=cfg["DB_PORT"],
+        cfg["DATABASE_URL"],
         cursor_factory=RealDictCursor
     )
 
@@ -43,48 +36,26 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
     cur.close()
     conn.close()
 
+
 # --- Get stats ---
 def get_stats():
     conn = get_connection()
     cur = conn.cursor()
+
+    # Total trades + average pnl
     cur.execute("SELECT COUNT(*) AS total, AVG(pnl_percent) AS avg_pnl FROM trades")
-    totals = cur.fetchone()
-
-    cur.execute("SELECT COUNT(*) FROM trades WHERE pnl_percent > 0")
-    wins = cur.fetchone()["count"]
-
-    winrate = (wins / totals["total"]) * 100 if totals["total"] > 0 else 0
-
-    cur.close()
-    conn.close()
-
-    return {
-        "total_trades": totals["total"],
-        "average_pnl": totals["avg_pnl"],
-        "winrate": winrate
-    }
-
-def get_stats():
-    conn = get_connection()
-    cur = conn.cursor()
-
-    # Total trades and average PnL
-    cur.execute("SELECT COUNT(*) AS total, AVG(pnl_percent) AS avg_pnl FROM trades")
-    totals = cur.fetchone()
+    totals = cur.fetchone() or {"total": 0, "avg_pnl": 0}
     total_trades = totals["total"] or 0
     avg_pnl = totals["avg_pnl"] or 0
 
     # Winrate
     cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
-    wins = cur.fetchone()["wins"] or 0
-    winrate = (wins / total_trades * 100) if total_trades > 0 else 0
+    wins = cur.fetchone() or {"wins": 0}
+    winrate = (wins["wins"] / total_trades * 100) if total_trades > 0 else 0
 
     cur.close()
     conn.close()
 
     return {
         "total_trades": total_trades,
-        "avg_pnl": avg_pnl,
-        "winrate": winrate
     }
-
