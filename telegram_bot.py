@@ -54,7 +54,7 @@ def start_telegram_listener():
     app = Application.builder().token(cfg["telegram_bot_token"]).build()
     app.add_handler(CommandHandler("stats", stats_command))
     print("🤖 Telegram listener started...")
-    app.run_polling()
+    app.run_polling(stop_signals=None)
 
 # --- Create and run the bot ---
 def main():
