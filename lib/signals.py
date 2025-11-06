@@ -1,5 +1,5 @@
 import datetime
-from telegram_bot import send_message_sync
+from lib.telegram_bot import send_message_sync
 from lib.position_manager import PositionManager
 from lib.database_manager import record_trade  # ✅ import correct recorder
 
