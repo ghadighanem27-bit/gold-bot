@@ -1,3 +1,4 @@
+# trading_loop.py
 import time
 from lib.market_data import get_data
 from lib.indicators import technical_score

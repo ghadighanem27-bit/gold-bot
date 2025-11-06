@@ -8,7 +8,7 @@ from threading import Thread
 # Internal imports
 from lib.vars import cfg
 from trading_loop import trading_loop
-from telegram_bot import start_telegram_listener
+from lib.telegram_bot import start_telegram_listener
 from lib.database_manager import get_connection
 
 # Allow emojis in console
