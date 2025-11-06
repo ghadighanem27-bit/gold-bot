@@ -4,17 +4,25 @@ import os
 import sys
 import yaml
 from threading import Thread
-from lib.vars import cfg
-from trading_loop import trading_loop
 
 # Internal imports
-
+from lib.vars import cfg
+from trading_loop import trading_loop
 from telegram_bot import start_telegram_listener
+from lib.database_manager import get_connection
 
 # Allow emojis in console
 sys.stdout.reconfigure(encoding='utf-8')
 
 print(f"🚀 Starting trading bot for {cfg["symbol"]}")
+
+#✅ Check connection with database
+try:
+    conn = get_connection()
+    print("✅ Database connection successful")
+    conn.close()
+except Exception as e:
+    print("❌ Database connection failed:", e)
 
 # ✅ Start Telegram listener in a background thread
 if __name__ == "__main__":
