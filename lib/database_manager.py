@@ -13,6 +13,8 @@ def get_connection():
 
 # --- Record a trade ---
 def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=False, sl_hit=False):
+    tp_hit = bool(tp_hit)
+    sl_hit = bool(sl_hit)
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -67,3 +69,4 @@ def get_stats():
         "avg_pnl": avg_pnl,
         "winrate": winrate
     }
+
