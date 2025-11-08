@@ -62,7 +62,7 @@ class PositionManager:
             send_message_sync(message)
 
 
-    def close_position(self, price):
+    def close_position(self, price, symbol):
         if not self.position:
             print("⚠️ No open position to close.\n")
             return None
