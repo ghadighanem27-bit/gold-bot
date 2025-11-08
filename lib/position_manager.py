@@ -4,7 +4,7 @@ import os
 
 
 from lib.telegram_bot import send_message_sync
-from lib.vars import trade_amount, cfg
+from lib.vars import trade_amount, symbol
 from lib.database_manager import record_trade
 
 class PositionManager:
@@ -53,12 +53,12 @@ class PositionManager:
         # --- Auto close conditions ---
         if pnl_percent >= self.take_profit:
             message = (f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n")
-            self.close_position(current_price)
+            self.close_position(current_price, symbol)
             send_message_sync(message)
 
         elif pnl_percent <= -self.stop_loss:
             message = (f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n")
-            self.close_position(current_price)
+            self.close_position(current_price, symbol)
             send_message_sync(message)
 
 
@@ -76,14 +76,14 @@ class PositionManager:
                    f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)")
         send_message_sync(message)
         record_trade(
-        symbol=cfg["symbol"],
+        symbol=symbol,
         side=self.position,
         entry_price=self.entry_price,
         exit_price=price,
         pnl_percent=pnl_percent,
         tp_hit=(pnl_percent >= self.take_profit),
         sl_hit=(pnl_percent <= -self.stop_loss)
-        )
+    )
 
         # Reset position after close
         self.reset()
