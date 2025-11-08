@@ -13,10 +13,14 @@ def get_connection():
 
 # --- Record a trade ---
 def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=False, sl_hit=False):
-    tp_hit = bool(tp_hit)
-    sl_hit = bool(sl_hit)
     conn = get_connection()
     cur = conn.cursor()
+
+    # ✅ Convert to native Python types
+    entry_price = float(entry_price)
+    exit_price = float(exit_price)
+    pnl_percent = float(pnl_percent)
+
     cur.execute("""
         INSERT INTO trades (
             timestamp_open, timestamp_close, symbol, side,
@@ -37,7 +41,6 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
     conn.commit()
     cur.close()
     conn.close()
-
 
 # --- Get stats ---
 def get_stats():
