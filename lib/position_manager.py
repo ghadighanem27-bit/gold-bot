@@ -42,7 +42,7 @@ class PositionManager:
         print(message)
 
 
-    def check_auto_close(self, current_price):
+    def check_auto_close(self, current_price, symbol):
         if not self.position:
             return
 
@@ -52,14 +52,14 @@ class PositionManager:
 
         # --- Auto close conditions ---
         if pnl_percent >= self.take_profit:
-            message = (f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n")
-            self.close_position(current_price, symbol)
+            message = f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n"
             send_message_sync(message)
+            self.close_position(current_price, symbol)
 
         elif pnl_percent <= -self.stop_loss:
-            message = (f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n")
-            self.close_position(current_price, symbol)
+            message = f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n"
             send_message_sync(message)
+            self.close_position(current_price, symbol)
 
 
     def close_position(self, price, symbol):
@@ -72,20 +72,27 @@ class PositionManager:
             pnl_percent = -pnl_percent
 
         self.pnl = pnl_percent
-        message = (f"💰 Closed {self.position} at {price:.2f}\n"
-                   f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)")
+        message = (
+            f"💰 Closed {self.position} at {price:.2f}\n"
+            f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)"
+        )
         send_message_sync(message)
-        record_trade(
-        symbol=symbol,
-        side=self.position,
-        entry_price=self.entry_price,
-        exit_price=price,
-        pnl_percent=pnl_percent,
-        tp_hit=(pnl_percent >= self.take_profit),
-        sl_hit=(pnl_percent <= -self.stop_loss)
-    )
 
-        # Reset position after close
+        try:
+            print(f"🧾 Saving trade to DB: {symbol} | {self.position} | {pnl_percent:.2f}%")
+            record_trade(
+                symbol=symbol,
+                side=self.position,
+                entry_price=float(self.entry_price),
+                exit_price=float(price),
+                pnl_percent=float(pnl_percent),
+                tp_hit=bool(pnl_percent >= self.take_profit),
+                sl_hit=bool(pnl_percent <= -self.stop_loss)
+            )
+            print("✅ Trade saved successfully.")
+        except Exception as e:
+            print(f"❌ DB Error while saving trade: {e}")
+
         self.reset()
         return pnl_percent
 
