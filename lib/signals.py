@@ -16,17 +16,7 @@ def signals(score, price, symbol, pm, trade_amount=None, take_profit=None, stop_
     if score >= 36:
         if pm.position != "BUY":
             print(f"🟢 BUY | Price:{price} | Score: {score:.2f}")
-            message = (
-                "📊 TRADE SIGNAL\n"
-                "-----------------------------\n"
-                "Action      |    🟢 BUY\n"
-                f"Symbol    |    {symbol}\n"
-                f"Price        |    {price:.2f}\n"
-                f"Score       |    {score:.2f}\n"
-                "-----------------------------"
-            )
-            log_signal("🟢 BUY", score, price)
-            send_message_sync(message)
+            log_signal("🟢 BUY", score, price) 
 
             # ✅ Open position
             pm.open_position(
