@@ -16,10 +16,13 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
     conn = get_connection()
     cur = conn.cursor()
 
-    # ✅ Convert to native Python types
+
+ # ✅ Convert all NumPy types to native Python types
     entry_price = float(entry_price)
     exit_price = float(exit_price)
     pnl_percent = float(pnl_percent)
+    tp_hit = bool(tp_hit)
+    sl_hit = bool(sl_hit)
 
     cur.execute("""
         INSERT INTO trades (
