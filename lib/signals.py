@@ -13,7 +13,7 @@ def signals(score, price, symbol, pm, trade_amount=None, take_profit=None, stop_
     symbol = symbol.strip().upper()
 
     # --- BUY logic ---
-    if score >= 38:
+    if score >= 36:
         if pm.position != "BUY":
             print(f"🟢 BUY | Price:{price} | Score: {score:.2f}")
             message = (
