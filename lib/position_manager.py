@@ -76,6 +76,7 @@ class PositionManager:
             f"💰 Closed {self.position} at {price:.2f}\n"
             f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)"
         )
+        print(message)
         send_message_sync(message)
 
         try:
