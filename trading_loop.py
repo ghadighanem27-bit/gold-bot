@@ -18,7 +18,7 @@ def trading_loop():
         score = technical_score(df)
 
         # 2️⃣ Check open position (for TP/SL auto close)
-        pm.check_auto_close(price)
+        pm.check_auto_close(price, symbol)
 
         # 3️⃣ Evaluate signals
         signals(score, price, symbol, pm, trade_amount, take_profit, stop_loss)
