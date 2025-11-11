@@ -21,7 +21,7 @@ def trading_loop():
         pm.check_auto_close(price, symbol)
 
         # 3️⃣ Evaluate signals
-        signals(score, price, symbol, pm, trade_amount, take_profit, stop_loss)
+        signals(df, price, symbol, pm, trade_amount, take_profit, stop_loss)
 
         # 4️⃣ Wait until next iteration
         time.sleep(loop_interval)
