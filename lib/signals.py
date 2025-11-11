@@ -14,7 +14,7 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     symbol = symbol.strip().upper()
 
     # --- Compute and record indicator scores ---
-    score = technical_score(df, symbol=symbol)   # Automatically records to DB
+    score = technical_score(df, symbol={symbol})   # Automatically records to DB
     weighted_score = score * 100  # scale to 0–100 if you use thresholds 25–36
 
     # --- BUY logic ---
