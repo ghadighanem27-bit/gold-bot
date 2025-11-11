@@ -1,7 +1,7 @@
 import datetime
 from lib.telegram_bot import send_message_sync
 from lib.position_manager import PositionManager
-from lib.database_manager import record_trade, technical_score  # ✅ import correct recorder
+from lib.database_manager import record_trade
 from lib.indicators import technical_score
 
 def log_signal(action, score, price):
