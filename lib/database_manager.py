@@ -41,10 +41,12 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
         tp_hit,
         sl_hit
     ))
+    trade_id = cur.fetchone()[0]
+
     conn.commit()
     cur.close()
     conn.close()
-
+    return trade_id
 # --- Get stats ---
 def get_stats():
     conn = get_connection()
@@ -76,3 +78,35 @@ def get_stats():
         "winrate": winrate
     }
 
+# Record scores to database immediately
+def record_scores(timestamp, symbol, scores, trade_id=None):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute("""
+            INSERT INTO indicator_scores (
+                timestamp, symbol, rsi, volume, macd,
+                candlestick, bollinger, macd_divergence,
+                ma_confluence, total, trade_id
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            timestamp,
+            symbol,
+            scores.get("rsi", 0),
+            scores.get("volume", 0),
+            scores.get("macd", 0),
+            scores.get("candlestick", 0),
+            scores.get("bollinger", 0),
+            scores.get("macd_divergence", 0),
+            scores.get("ma_confluence", 0),
+            scores.get("total", 0),
+            trade_id
+        ))
+        conn.commit()
+    except Exception as e:
+        print(f"⚠️ Database error in record_scores(): {e}")
+    finally:
+        cur.close()
+        conn.close()

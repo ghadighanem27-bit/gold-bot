@@ -6,6 +6,7 @@ import os
 from lib.telegram_bot import send_message_sync
 from lib.vars import trade_amount, symbol
 from lib.database_manager import record_trade
+from lib.indicators import technical_score
 
 class PositionManager:
     """
@@ -62,7 +63,8 @@ class PositionManager:
             self.close_position(current_price, symbol)
 
 
-    def close_position(self, price, symbol):
+
+    def close_position(self, price, symbol, df=None):
         if not self.position:
             print("⚠️ No open position to close.\n")
             return None
@@ -79,9 +81,10 @@ class PositionManager:
         print(message)
         send_message_sync(message)
 
+        trade_id = None
         try:
             print(f"🧾 Saving trade to DB: {symbol} | {self.position} | {pnl_percent:.2f}%")
-            record_trade(
+            trade_id = record_trade(
                 symbol=symbol,
                 side=self.position,
                 entry_price=float(self.entry_price),
@@ -90,13 +93,21 @@ class PositionManager:
                 tp_hit=bool(pnl_percent >= self.take_profit),
                 sl_hit=bool(pnl_percent <= -self.stop_loss)
             )
-            print("✅ Trade saved successfully.")
+            print(f"✅ Trade saved successfully. Trade ID = {trade_id}")
         except Exception as e:
             print(f"❌ DB Error while saving trade: {e}")
 
+        # --- Record exit indicator snapshot (if df available) ---
+        if df is not None and trade_id is not None:
+            try:
+                print("📊 Recording exit indicator snapshot...")
+                total_score = technical_score(df, symbol=symbol)
+                technical_score(datetime.datetime.utcnow(), symbol, {"total": total_score}, trade_id=trade_id)
+            except Exception as e:
+                print(f"⚠️ Could not record exit indicators: {e}")
+
         self.reset()
         return pnl_percent
-
     def reset(self):
         """Clear all position data (after closing)."""
         self.position = None

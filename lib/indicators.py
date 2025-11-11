@@ -1,6 +1,8 @@
 import numpy as np
 import talib
 import ta
+import datetime
+from lib.database_manager import record_scores
 
 # --- RSI ---
 def get_rsi(df):
@@ -20,8 +22,9 @@ def get_rsi(df):
     #clamp
     rsi_power = max(min(rsi_power, 1.6), 1.4)
 
-    score = 15 * (1 - (rsi / 100) ** rsi_power)
+    score = 1 - (rsi / 100) ** rsi_power
     print(f" RSI | power {rsi_power:.2f} |  score {score:.2f}")
+
     return score
 
 # --- MACD ---
@@ -45,6 +48,7 @@ def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20):
     # Clamp score between 0 and 10
     score = max(0, min(10, score))
 
+    score = score / 10  # Normalize to 0-1
     print(f" MACD | score {score:.2f}")
     
     return score
@@ -75,6 +79,8 @@ def volume_score(volumes, spike_ratio=1.5):
     
     # Clamp to 0–10
     score = max(0, min(10, score))
+    # Normalize to 0–1
+    score /= 10
     print(f" Volume | score {score:.2f}")
     return score
 
@@ -122,6 +128,7 @@ def candlestick_score(opens, highs, lows, closes):
 
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
+    score /= max_score  # Normalize to 0-1
     print(f" Candle Stick | score {score:.2f}")
     return score
 
@@ -153,6 +160,8 @@ def bollinger_score(prices, period=20, nbdev=2):
 
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
+    # Normalize to 0–1
+    score /= max_score
     print(f" Bollinger | score {score:.2f}")
     return score
 
@@ -183,6 +192,7 @@ def macd_divergence_score(prices, lookback=5):
     
     # Clamp between 0 and max_score
     score = max(0, min(max_score, score))
+    score /= max_score  # Normalize to 0-1
     print(f" MACD Divergence | score {score:.2f}")
     return score
 
@@ -204,25 +214,56 @@ def ma_confluence_score(prices):
     else:
         score = 5  # neutre ou tendance incertaine
 
+    score /= 10  # Normalize to 0-1
+
     print(f" MA Confluence | score {score:.2f}")
     return score
 
-# --- Combined technical score ---
-def technical_score(df):
+def technical_score(df, symbol=None):
     prices = df["c"].astype(float).values
     volumes = df["v"].astype(float).values
     opens = df["o"].astype(float).values
     highs = df["h"].astype(float).values
     lows = df["l"].astype(float).values
 
-    total = (
-        get_rsi(df)
-        + get_macd(prices)
-        + volume_score(volumes)
-        + candlestick_score(opens, highs, lows, prices)
-        + bollinger_score(prices)
-        + macd_divergence_score(prices)
-        + ma_confluence_score(prices)
-    )
+    # --- Individual indicator scores ---
+    scores = {
+        "rsi": float(get_rsi(df)),
+        "macd": float(get_macd(prices)),
+        "volume": float(volume_score(volumes)),
+        "candlestick": float(candlestick_score(opens, highs, lows, prices)),
+        "bollinger": float(bollinger_score(prices)),
+        "macd_divergence": float(macd_divergence_score(prices)),
+        "ma_confluence": float(ma_confluence_score(prices)),
+    }
+
+    # --- Weighted total ---
+    weights = {
+        "rsi": 0.15,
+        "macd": 0.20,
+        "volume": 0.10,
+        "candlestick": 0.10,
+        "bollinger": 0.15,
+        "macd_divergence": 0.15,
+        "ma_confluence": 0.15,
+    }
+
+    total = sum(scores[k] * weights[k] for k in scores)
+    print(f" TOTAL TECHNICAL SCORE | {total:.2f}")
+
+    # --- Record indicator scores in database ---
+    timestamp = datetime.datetime.utcnow()
+
+    # Add total to dict for DB insert
+    scores["total"] = float(total)
+
+    if symbol:
+        try:
+            record_scores(timestamp, symbol, scores)
+        except Exception as e:
+            print(f"⚠️ Failed to record scores for {symbol}: {e}")
+    else:
+        print("⚠️ No symbol provided, skipping database insert.")
+
     return total
 

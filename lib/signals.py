@@ -43,8 +43,9 @@ def signals(score, price, symbol, pm, trade_amount=None, take_profit=None, stop_
             log_signal("🔴 SELL", score, price)
             send_message_sync(message)
 
-            # ✅ Close position and get PnL %
-            pnl_percent = pm.close_position(price)
+            # ✅ Close position
+            pm.close_position(price, symbol)
+           
 
     # --- HOLD logic ---
     else:
