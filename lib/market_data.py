@@ -15,3 +15,10 @@ def get_data(symbol, interval="5m", limit=200):
     df["c"] = df["c"].astype(float)
     df["v"] = df["v"].astype(float)
     return df
+
+def get_price(symbol):
+    df = get_data(symbol)
+    try:
+        return float(df["c"].iloc[-1])
+    except:
+        raise ValueError("Could not fetch latest price")
