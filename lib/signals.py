@@ -1,36 +1,51 @@
 import datetime
 from lib.telegram_bot import send_message_sync
-from lib.position_manager import PositionManager
 from lib.database_manager import record_trade
 from lib.indicators import technical_score
 
+
 def log_signal(action, score, price):
-    """Save each BUY/SELL signal to a text file (UTF-8 safe)."""
+    """Log signals to a UTF-8 text file."""
     with open("trade_log.txt", "a", encoding="utf-8") as f:
         timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         f.write(f"{timestamp} | {action} | Score={score:.2f} | Price={price}\n")
 
-def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):
-    symbol = symbol.strip().upper()
 
-    # Cooldown check
+def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):
+    symbol = symbol.upper()
+
+    # -----------------------------------------
+    # COOLDOWN CHECK
+    # -----------------------------------------
     if pm.cooldown_until is not None:
-        if datetime.utcnow() < pm.cooldown_until:
-            print("⏳ Cooldown active: skipping trade signal...")
+        if datetime.datetime.utcnow() < pm.cooldown_until:
+            print("⏳ Cooldown active: skipping trade...")
             return
         else:
-            # Cooldown expired
             pm.cooldown_until = None
 
-    # --- Compute and record indicator scores ---
-    score = technical_score(df, symbol={symbol})   # Automatically records to DB
-    weighted_score = score * 100  # scale to 0–100 if you use thresholds 25–36
+    # -----------------------------------------
+    # GET TECHNICAL SCORE
+    # -----------------------------------------
+    score = technical_score(df, symbol=symbol)
+    weighted_score = score * 100     # convert to 0–100 scale
 
-    # --- BUY logic ---
-    if weighted_score >= 36:
+    # Thresholds
+    BUY_THRESHOLD = 36
+    SELL_THRESHOLD = 25
+
+    print(f"📊 Score={weighted_score:.2f} | Price={price:.2f}")
+
+    # -----------------------------------------
+    # LONG ENTRY (BUY to OPEN)
+    # -----------------------------------------
+    if weighted_score >= BUY_THRESHOLD:
+
         if pm.position != "BUY":
-            print(f"🟢 BUY | Price:{price:.2f} | Score: {weighted_score:.2f}")
-            log_signal("🟢 BUY", weighted_score, price)
+            print(f"🟢 LONG ENTRY | Score {weighted_score:.2f} ≥ {BUY_THRESHOLD}")
+
+            log_signal("LONG ENTRY", weighted_score, price)
+            send_message_sync(f"🟢 LONG ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
 
             pm.open_position(
                 side="BUY",
@@ -39,25 +54,30 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
                 take_profit=take_profit,
                 stop_loss=stop_loss
             )
+        return  # do not process other logic in same candle
 
-    # --- SELL logic ---
-    elif weighted_score <= 25:
-        if pm.position == "BUY":
-            print(f"🔴 SELL | Price:{price:.2f} | Score: {weighted_score:.2f}")
-            message = (
-                "📊 TRADE SIGNAL\n"
-                "-----------------------------\n"
-                "Action      |    🔴 SELL\n"
-                f"Symbol    |    {symbol}\n"
-                f"Price        |    {price:.2f}\n"
-                f"Score       |    {weighted_score:.2f}\n"
-                "-----------------------------"
+    # -----------------------------------------
+    # SHORT ENTRY (SELL to OPEN)
+    # -----------------------------------------
+    if weighted_score <= SELL_THRESHOLD:
+
+        if pm.position != "SELL":
+            print(f"🔴 SHORT ENTRY | Score {weighted_score:.2f} ≤ {SELL_THRESHOLD}")
+
+            log_signal("SHORT ENTRY", weighted_score, price)
+            send_message_sync(f"🔴 SHORT ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
+
+            pm.open_position(
+                side="SELL",
+                price=price,
+                quantity=trade_amount,
+                take_profit=take_profit,
+                stop_loss=stop_loss
             )
-            log_signal("🔴 SELL", weighted_score, price)
-            send_message_sync(message)
-            pm.close_position(price, symbol)
+        return
 
-    # --- HOLD logic ---
-    else:
-        print(f"⚪ HOLD | Price:{price:.2f} | Score: {weighted_score:.2f}")
-        log_signal("⚪ HOLD", weighted_score, price)
+    # -----------------------------------------
+    # HOLD SIGNAL
+    # -----------------------------------------
+    print(f"⚪ HOLD | Price {price:.2f} | Score {weighted_score:.2f}")
+    log_signal("HOLD", weighted_score, price)
