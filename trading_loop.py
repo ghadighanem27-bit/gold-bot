@@ -1,16 +1,10 @@
 import time
 from datetime import datetime, timedelta
 
-from lib.market_data import (
-    get_data,
-    get_usdt_balance,
-    get_futures_price   # NEW: correct Binance Futures mark price
-)
-
+from lib.market_data import get_data, get_futures_price, get_usdt_balance
 from lib.indicators import technical_score
 from lib.signals import signals
 from lib.position_manager import PositionManager
-
 from lib.vars import (
     cfg,
     symbol,
@@ -20,7 +14,6 @@ from lib.vars import (
     indicator_interval
 )
 
-
 def trading_loop():
     pm = PositionManager()
     print("🌀 Trading loop started using MARK PRICE...")
@@ -29,52 +22,43 @@ def trading_loop():
 
     while True:
 
-        ###############################################
-        # 1) FAST LOOP — MARK PRICE every X seconds
-        ###############################################
+        # ---------------------------------------------------------
+        # FAST LOOP — Futures Mark Price every X seconds
+        # ---------------------------------------------------------
         try:
-            price = get_futures_price(symbol)
-
+            price = get_futures_price(symbol)     # <<< NOW USING MARK PRICE
             if price is None:
-                print("⚠️ Could not fetch mark price. Retrying...")
+                print("⚠️ Could not fetch mark price, skipping.")
                 time.sleep(price_interval)
                 continue
 
-            # Auto-close logic ALWAYS uses mark price
             pm.check_auto_close(price, symbol)
 
-            print(f"[{datetime.utcnow()}] MARK PRICE: {price}")
+            # Heartbeat log
+            print(f"[{datetime.utcnow()}] Mark Price: {price}")
 
         except Exception as e:
             print(f"⚠️ Price update error: {e}")
 
-        ###############################################
-        # 2) Dynamic position sizing (safe compounding)
-        ###############################################
-        try:
-            balance = get_usdt_balance()
-            risk_pct = cfg.get("risk_percentage", 0.01)
+        # ---------------------------------------------------------
+        # DYNAMIC POSITION SIZE (compounding)
+        # ---------------------------------------------------------
+        balance = get_usdt_balance()
+        risk_pct = cfg.get("risk_percentage", 0.01)
 
-            trade_value_usdt = balance * risk_pct
-            trade_amount = trade_value_usdt / price
+        trade_value_usdt = balance * risk_pct         # risk % of total balance
+        trade_amount = trade_value_usdt / price       # convert USDT → ETH
 
-        except Exception as e:
-            print(f"⚠️ Balance/position sizing error: {e}")
-            trade_amount = 0.01  # fail-safe
-
-        ###############################################
-        # 3) SLOW LOOP — Indicators every Y seconds
-        ###############################################
+        # ---------------------------------------------------------
+        # SLOW LOOP — Indicators + signals every Y seconds
+        # ---------------------------------------------------------
         now = datetime.utcnow()
 
         if now - last_indicator_update >= timedelta(seconds=indicator_interval):
 
             try:
-                print("\n📡 Updating indicators + running signals…")
-
+                print("📡 Updating indicators + running signals...")
                 df = get_data(symbol)
-
-                # ALWAYS pass mark price here
                 signals(df, price, symbol, pm, trade_amount, take_profit, stop_loss)
 
             except Exception as e:
@@ -82,7 +66,7 @@ def trading_loop():
 
             last_indicator_update = now
 
-        ###############################################
-        # 4) Sleep until next tick
-        ###############################################
+        # ---------------------------------------------------------
+        # Sleep until next price tick
+        # ---------------------------------------------------------
         time.sleep(price_interval)
