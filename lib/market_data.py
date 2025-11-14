@@ -32,3 +32,11 @@ def get_usdt_balance():
             return float(item["balance"])
 
     return 0.0
+
+def get_futures_price(symbol):
+    try:
+        data = client.futures_mark_price(symbol=symbol)
+        return float(data["markPrice"])
+    except Exception as e:
+        print(f"⚠️ Futures mark price error: {e}")
+        return None
