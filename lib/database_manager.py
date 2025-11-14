@@ -132,7 +132,7 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
 
     try:
         cur.execute("""
-            INSERT INTO indicator_scores (
+            INSERT INTO technical_scores (
                 timestamp, symbol,
                 rsi, volume, macd, candlestick,
                 bollinger, macd_divergence, ma_confluence,
