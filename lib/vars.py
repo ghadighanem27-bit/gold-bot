@@ -12,7 +12,6 @@ with open(CONFIG_PATH, "r") as f:
 client = Client(cfg["api_key"], cfg["api_secret"], testnet=True)
 client.API_URL = cfg["base_url"]
 
-# Désactive le ping automatique
 try:
     client.ping()
 except Exception as e:
@@ -22,10 +21,9 @@ except Exception as e:
 symbol = cfg["symbol"]
 trade_amount = cfg["trade_amount"]
 timeframe = cfg["timeframe"]
-trade_amount = cfg["trade_amount"]
 take_profit = cfg["take_profit"]
 stop_loss = cfg["stop_loss"]
-loop_interval = cfg["loop_interval"]
 
-# --- Bot runtime config ---
-loop_interval = cfg.get("loop_interval", 300)
+# --- Timing parameters (NEW) ---
+price_interval = cfg.get("price_interval_seconds", 5)         # default 5 sec
+indicator_interval = cfg.get("indicator_interval_seconds", 300)  # default 5 min
