@@ -115,6 +115,11 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
     if not symbol:
         print("⚠️ No symbol provided to record_scores(). Skipping.")
         return
+    
+    # Convert sets inside 'scores' to integers
+    for key, value in scores.items():
+        if isinstance(value, set):
+            scores[key] = sum(value)  # or int(max(value))
 
     conn = get_connection()
     cur = conn.cursor()

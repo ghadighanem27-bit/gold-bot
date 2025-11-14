@@ -23,7 +23,7 @@ def trading_loop():
             except Exception as e:
                 print(f"⚠️ Error during active trade price update: {e}")
 
-            time.sleep(1)
+            time.sleep(5)  # shorter sleep when position is open
             continue  # skip the rest of the loop
 
         # ---------------------------------------------------------
