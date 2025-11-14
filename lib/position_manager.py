@@ -9,11 +9,26 @@ from lib.database_manager import record_trade
 from lib.indicators import technical_score
 
 
+# ----------------------------------------------------
+# QUANTITY VALIDATOR (Mandatory for Binance Futures)
+# ----------------------------------------------------
+def format_quantity(qty):
+    qty = float(qty)
+
+    # Binance ETHUSDT Futures → max 3 decimals, min 0.001
+    qty = round(qty, 3)
+
+    if qty < 0.001:
+        raise ValueError(f"❌ Quantity too small for Binance Futures: {qty}")
+
+    return qty
+
+
 class PositionManager:
 
     def __init__(self, save_file="position_state.json"):
         self.save_file = save_file
-        self.position = None
+        self.position = None            # "BUY" or "SELL"
         self.entry_price = 0.0
         self.entry_time = None
         self.quantity = 0.0
@@ -30,6 +45,13 @@ class PositionManager:
     # ----------------------------------------------------
     def open_position(self, side, price, quantity, take_profit=1, stop_loss=0.5):
 
+        # -------- FIX: Enforce Binance precision rules --------
+        try:
+            quantity = format_quantity(quantity)
+        except Exception as e:
+            print(e)
+            return
+
         self.position = side
         self.entry_price = price
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -39,7 +61,7 @@ class PositionManager:
         self.pnl = 0.0
         self.save_state()
 
-        # PLACE REAL FUTURES ORDER
+        # -------- SEND REAL FUTURES ORDER --------
         try:
             order = client.futures_create_order(
                 symbol=BOT_SYMBOL,
@@ -47,10 +69,17 @@ class PositionManager:
                 type="MARKET",
                 quantity=quantity
             )
+
+            # Check if filled
+            if order.get("status") not in ("FILLED", "PARTIALLY_FILLED"):
+                print(f"❌ Order not filled: {order}")
+                return
+
             print(f"📌 Futures Order Executed: {order}")
 
         except Exception as e:
             print(f"❌ Binance Futures order error: {e}")
+            return
 
         msg = (
             f"✅ Opened {side} (Futures)\n"
@@ -70,6 +99,7 @@ class PositionManager:
             return
 
         pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
+
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
@@ -100,7 +130,7 @@ class PositionManager:
         was_win = pnl_percent >= 0
         self.last_trade_was_win = was_win
 
-        # 10 minute cooldown after a loss
+        # 10 MIN COOLDOWN ON LOSS
         if not was_win:
             self.cooldown_until = datetime.datetime.utcnow() + timedelta(minutes=10)
             print(f"⏳ Cooldown triggered until {self.cooldown_until}")
@@ -112,20 +142,31 @@ class PositionManager:
             f"(TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
 
-        # SEND REAL CLOSE ORDER
+        # -------- FIX: Correct close quantity --------
+        try:
+            close_qty = format_quantity(self.quantity)
+        except Exception as e:
+            print(e)
+            return
+
+        # -------- SEND REAL CLOSE ORDER --------
         try:
             order = client.futures_create_order(
                 symbol=symbol,
                 side="SELL" if self.position == "BUY" else "BUY",
                 type="MARKET",
-                quantity=self.quantity
+                quantity=close_qty
             )
+
+            if order.get("status") not in ("FILLED", "PARTIALLY_FILLED"):
+                print(f"❌ Close order not filled: {order}")
+
             print(f"📌 Futures Close Executed: {order}")
 
         except Exception as e:
             print(f"❌ Binance Futures close error: {e}")
 
-        # Save trade to DB
+        # -------- SAVE TRADE TO DATABASE --------
         try:
             trade_id = record_trade(
                 symbol=symbol,
@@ -137,6 +178,7 @@ class PositionManager:
                 sl_hit=pnl_percent <= -self.stop_loss
             )
             print(f"✅ Trade saved to DB (ID: {trade_id})")
+
         except Exception as e:
             print(f"❌ DB Error while saving trade: {e}")
 
