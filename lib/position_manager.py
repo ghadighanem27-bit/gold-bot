@@ -38,6 +38,12 @@ class PositionManager:
         self.cooldown_until = None
         self.last_trade_was_win = None
 
+        # >>> BREAK-EVEN START
+        self.break_even_enabled = True
+        self.break_even_trigger_pct = 0.4   # Activate BE at +0.4%
+        self.break_even_activated = False
+        # >>> BREAK-EVEN END
+
         self.load_state()
 
     # ----------------------------------------------------
@@ -45,7 +51,6 @@ class PositionManager:
     # ----------------------------------------------------
     def open_position(self, side, price, quantity, take_profit=1, stop_loss=0.5):
 
-        # -------- FIX: Enforce Binance precision rules --------
         try:
             quantity = format_quantity(quantity)
         except Exception as e:
@@ -59,6 +64,10 @@ class PositionManager:
         self.take_profit = take_profit
         self.stop_loss = stop_loss
         self.pnl = 0.0
+
+        # Reset break-even flag on new trade
+        self.break_even_activated = False
+
         self.save_state()
 
         # -------- SEND REAL FUTURES ORDER --------
@@ -70,7 +79,6 @@ class PositionManager:
                 quantity=quantity
             )
 
-            # Check if filled
             if order.get("status") not in ("FILLED", "PARTIALLY_FILLED"):
                 print(f"❌ Order not filled: {order}")
                 return
@@ -91,7 +99,7 @@ class PositionManager:
         print(msg)
 
     # ----------------------------------------------------
-    # AUTO CLOSE (TP/SL)
+    # AUTO CLOSE (TP/SL + BREAK-EVEN)
     # ----------------------------------------------------
     def check_auto_close(self, current_price, symbol=BOT_SYMBOL):
 
@@ -99,15 +107,31 @@ class PositionManager:
             return
 
         pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
-
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
+        # >>> BREAK-EVEN START
+        if self.break_even_enabled and not self.break_even_activated:
+            if pnl_percent >= self.break_even_trigger_pct:
+                self.stop_loss = 0   # SL moves to entry
+                self.break_even_activated = True
+
+                msg = (
+                    f"🟦 BREAK-EVEN ACTIVATED\n"
+                    f"Trade protected at entry.\n"
+                    f"PnL: {pnl_percent:.2f}%"
+                )
+                send_message_sync(msg)
+                print(msg)
+        # >>> BREAK-EVEN END
+
+        # --- TAKE PROFIT ---
         if pnl_percent >= self.take_profit:
             send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%")
             self.close_position(current_price, symbol)
             return
 
+        # --- STOP LOSS (including break-even) ---
         if pnl_percent <= -self.stop_loss:
             send_message_sync(f"⛔ Stop Loss hit! {pnl_percent:.2f}%")
             self.close_position(current_price, symbol)
@@ -130,7 +154,7 @@ class PositionManager:
         was_win = pnl_percent >= 0
         self.last_trade_was_win = was_win
 
-        # 10 MIN COOLDOWN ON LOSS
+        # Apply cooldown on loss
         if not was_win:
             self.cooldown_until = datetime.datetime.utcnow() + timedelta(minutes=10)
             print(f"⏳ Cooldown triggered until {self.cooldown_until}")
@@ -142,14 +166,12 @@ class PositionManager:
             f"(TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
 
-        # -------- FIX: Correct close quantity --------
         try:
             close_qty = format_quantity(self.quantity)
         except Exception as e:
             print(e)
             return
 
-        # -------- SEND REAL CLOSE ORDER --------
         try:
             order = client.futures_create_order(
                 symbol=symbol,
@@ -158,15 +180,11 @@ class PositionManager:
                 quantity=close_qty
             )
 
-            if order.get("status") not in ("FILLED", "PARTIALLY_FILLED"):
-                print(f"❌ Close order not filled: {order}")
-
             print(f"📌 Futures Close Executed: {order}")
 
         except Exception as e:
             print(f"❌ Binance Futures close error: {e}")
 
-        # -------- SAVE TRADE TO DATABASE --------
         try:
             trade_id = record_trade(
                 symbol=symbol,
@@ -192,6 +210,7 @@ class PositionManager:
         self.entry_time = None
         self.quantity = 0.0
         self.pnl = 0.0
+        self.break_even_activated = False
         self.save_state()
 
     # ----------------------------------------------------
@@ -204,6 +223,7 @@ class PositionManager:
             "pnl": self.pnl,
             "take_profit": self.take_profit,
             "stop_loss": self.stop_loss,
+            "break_even_activated": self.break_even_activated
         }
         with open(self.save_file, "w") as f:
             json.dump(state, f)
@@ -221,6 +241,7 @@ class PositionManager:
                 self.pnl = state.get("pnl", 0.0)
                 self.take_profit = state.get("take_profit", 1)
                 self.stop_loss = state.get("stop_loss", 0.5)
+                self.break_even_activated = state.get("break_even_activated", False)
 
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")
