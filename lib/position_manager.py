@@ -50,26 +50,30 @@ class PositionManager:
         send_message_sync(message)
         print(message)
 
-    def check_auto_close(self, current_price):
+    def check_auto_close(self, current_price, symbol=BOT_SYMBOL):
+        """Checks if TP or SL has been hit and closes the position automatically."""
         if not self.position:
             return
 
-        symbol = BOT_SYMBOL  # Always load symbol safely
-
+        # Calculate PnL %
         pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
-        # --- Auto closing ---
+        # --- TAKE PROFIT ---
         if pnl_percent >= self.take_profit:
-            message = f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n"
+            message = f"🎯 Take Profit hit! +{pnl_percent:.2f}%"
             send_message_sync(message)
             self.close_position(current_price, symbol)
+            return
 
-        elif pnl_percent <= -self.stop_loss:
-            message = f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n"
+        # --- STOP LOSS ---
+        if pnl_percent <= -self.stop_loss:
+            message = f"⛔ Stop Loss hit! {pnl_percent:.2f}%"
             send_message_sync(message)
             self.close_position(current_price, symbol)
+            return
+
 
     def close_position(self, price, symbol=BOT_SYMBOL, df=None):
         if not self.position:
