@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import json
 import os
 
@@ -23,6 +24,9 @@ class PositionManager:
         self.pnl = 0.0
         self.take_profit = 1   # as % (example: 1 = 1%)
         self.stop_loss = 0.5   # as % (example: 0.5 = 0.5%)
+        self.cooldown_until = None
+        self.last_trade_was_win = None
+
 
         # Load last saved state
         self.load_state()
@@ -81,6 +85,17 @@ class PositionManager:
             pnl_percent = -pnl_percent
 
         self.pnl = pnl_percent
+
+        # Determine if trade was a win or loss
+        was_win = pnl_percent >= 0
+        self.last_trade_was_win = was_win
+
+        # Apply 10 min cooldown if loss
+        if not was_win:
+            self.cooldown_until = datetime.utcnow() + timedelta(minutes=10)
+            print(f"⏳ Cooldown triggered until {self.cooldown_until}")
+        else:
+            self.cooldown_until = None
 
         message = (
             f"💰 Closed {self.position} at {price:.2f}\n"

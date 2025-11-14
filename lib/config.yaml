@@ -1,7 +1,7 @@
 # Binance Config
-api_key: "ftQsSUG05ozKrrINbT31fDzmSe3hYX6wNaHznU8qXk03zuplNVSERbBaqvSXbpo2"
-api_secret: "PBbKS&UYgwqueyG8D1JBMdoLKYSC&ojKfP17g5ecDRKDjy7yGOUKDyK1HULvQI4"
-base_url: "https://testnet.binance.vision/api"
+api_key: "wB2D5uwQdNwbJajBMUfr1AsmKQmAakSYT1kl8gwIVYy9ZJeKneeXi2pIg0wkBucw"
+api_secret: "VZbSaK6gtcAyvdCcCfIHNvFS0HlCoOEID0N0kkcEyPmoglMtCu3O2UkOxVGziviz"
+base_url: "https://testnet.binancefuture.com/fapi"
 
 # Telegram config
 telegram_bot_token: "7743046161:AAG1P4Yo6lZZ7t1Auo10Aeyp8YFdkvL5KNw"
@@ -10,6 +10,7 @@ telegram_chat_id: "1131830593"
 # Trading parameters
 symbol: ETHUSDT
 trade_amount: 0.01
+risk_percentage: 0.01 # 1% of account per trade
 take_profit: 1.5
 stop_loss: 1
 timeframe: "5m"

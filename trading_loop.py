@@ -5,14 +5,15 @@ from lib.market_data import get_data, get_price
 from lib.indicators import technical_score
 from lib.signals import signals
 from lib.position_manager import PositionManager
+from lib.market_data import get_usdt_balance
+from lib.vars import cfg
 
 from lib.vars import (
     symbol,
-    trade_amount,
     take_profit,
     stop_loss,
-    price_interval,        # from YAML (e.g. 5)
-    indicator_interval,    # from YAML (e.g. 300 = 5 min)
+    price_interval,        # e.g., 5 seconds
+    indicator_interval,    # e.g., 300 seconds
 )
 
 
@@ -29,13 +30,14 @@ def trading_loop():
         # ---------------------------------------------------------
         try:
             price = get_price(symbol)
-            pm.check_auto_close(price)     # TP/SL always checked
+            pm.check_auto_close(price, symbol)
         except Exception as e:
             print(f"⚠️ Price update error: {e}")
+            time.sleep(price_interval)
+            continue
 
         # ---------------------------------------------------------
-        # 2) SLOW LOOP → Indicators/signals every 5 minutes
-        #   (EVEN IF A TRADE IS OPEN)
+        # 2) SLOW LOOP → Indicators + signal evaluations (5 min)
         # ---------------------------------------------------------
         now = datetime.utcnow()
 
@@ -47,7 +49,20 @@ def trading_loop():
                 # Recalculate technical indicators
                 score = technical_score(df)
 
-                # Run BUY/SELL logic every 5 min
+                # -----------------------------------------
+                # 💰 COMPOUNDING → recalculate trade size
+                # -----------------------------------------
+                balance = get_usdt_balance()
+                risk_pct = cfg.get("risk_percentage", 0.01)  # default 1% risk
+                trade_value_usdt = balance * risk_pct
+
+                # Convert USDT → ETH amount
+                trade_amount = trade_value_usdt / price
+
+                print(f"💰 Dynamic trade amount: {trade_amount:.6f} ETH "
+                      f"(Balance={balance:.2f} USDT, Risk={risk_pct*100:.1f}%)")
+
+                # Run BUY/SELL logic
                 signals(df, price, symbol, pm, trade_amount, take_profit, stop_loss)
 
                 print(f"📊 Indicators + signals updated at {now}")

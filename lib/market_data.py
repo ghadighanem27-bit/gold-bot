@@ -2,6 +2,7 @@ from binance.client import Client
 import pandas as pd
 from lib.vars import client
 from lib.vars import cfg
+from lib.vars import client
 
 def get_data(symbol, interval="5m", limit=200):
     """Fetch recent candles for a given symbol."""
@@ -22,3 +23,12 @@ def get_price(symbol):
         return float(df["c"].iloc[-1])
     except:
         raise ValueError("Could not fetch latest price")
+    
+def get_usdt_balance():
+    balance = client.futures_account_balance()
+
+    for item in balance:
+        if item["asset"] == "USDT":
+            return float(item["balance"])
+
+    return 0.0
