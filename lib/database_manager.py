@@ -15,7 +15,7 @@ def get_connection():
 
 
 # ---------------------------------------------
-#  RECORD TRADE
+#  RECORD TRADE (FINAL WORKING VERSION)
 # ---------------------------------------------
 def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=False, sl_hit=False):
     if not symbol:
@@ -26,14 +26,14 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
     cur = conn.cursor()
 
     try:
-        # Convert all types to safe Python primitives
+        # Convert values to safe formats
         entry_price = float(entry_price)
         exit_price = float(exit_price)
         pnl_percent = float(pnl_percent)
 
-        # Postgres wants integers for booleans (TRUE/FALSE also work)
-        tp_hit = int(bool(tp_hit))
-        sl_hit = int(bool(sl_hit))
+        # Postgres BOOLEAN expects True/False
+        tp_hit = bool(tp_hit)
+        sl_hit = bool(sl_hit)
 
         cur.execute("""
             INSERT INTO trades (
@@ -47,7 +47,7 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
                 take_profit_hit,
                 stop_loss_hit
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
         """, (
             datetime.datetime.utcnow(),
@@ -61,9 +61,15 @@ def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=Fals
             sl_hit
         ))
 
-        trade_id = cur.fetchone()["id"]  # SAFE fetch
+        result = cur.fetchone()
+        if not result:
+            print("❌ ERROR: No trade ID returned by DB.")
+            return None
 
+        trade_id = result["id"]
         conn.commit()
+
+        print(f"✅ Trade inserted into DB with ID {trade_id}")
         return trade_id
 
     except Exception as e:
@@ -115,11 +121,11 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
     if not symbol:
         print("⚠️ No symbol provided to record_scores(). Skipping.")
         return
-    
-    # Convert sets inside 'scores' to integers
+
+    # Convert sets to integers if needed
     for key, value in scores.items():
         if isinstance(value, set):
-            scores[key] = sum(value)  # or int(max(value))
+            scores[key] = sum(value)
 
     conn = get_connection()
     cur = conn.cursor()
@@ -132,7 +138,7 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
                 bollinger, macd_divergence, ma_confluence,
                 total, trade_id
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             timestamp,
             symbol,
