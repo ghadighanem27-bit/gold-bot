@@ -30,20 +30,37 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     score = technical_score(df, symbol=symbol)
     weighted_score = score * 100     # convert to 0–100 scale
 
-    # Thresholds
     BUY_THRESHOLD = 36
     SELL_THRESHOLD = 25
 
     print(f"📊 Score={weighted_score:.2f} | Price={price:.2f}")
 
     # -----------------------------------------
-    # LONG ENTRY (BUY to OPEN)
+    # EXIT LOGIC  (IMPORTANT!)
+    # -----------------------------------------
+
+    # Close LONG → If score goes bearish
+    if pm.position == "BUY" and weighted_score <= SELL_THRESHOLD:
+        print("🔴 EXIT LONG SIGNAL DETECTED")
+        log_signal("EXIT LONG", weighted_score, price)
+        send_message_sync(f"🔴 EXIT LONG\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
+        pm.close_position(price, symbol)
+        return
+
+    # Close SHORT → If score goes bullish
+    if pm.position == "SELL" and weighted_score >= BUY_THRESHOLD:
+        print("🟢 EXIT SHORT SIGNAL DETECTED")
+        log_signal("EXIT SHORT", weighted_score, price)
+        send_message_sync(f"🟢 EXIT SHORT\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
+        pm.close_position(price, symbol)
+        return
+
+    # -----------------------------------------
+    # LONG ENTRY
     # -----------------------------------------
     if weighted_score >= BUY_THRESHOLD:
-
         if pm.position != "BUY":
             print(f"🟢 LONG ENTRY | Score {weighted_score:.2f} ≥ {BUY_THRESHOLD}")
-
             log_signal("LONG ENTRY", weighted_score, price)
             send_message_sync(f"🟢 LONG ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
 
@@ -54,16 +71,14 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
                 take_profit=take_profit,
                 stop_loss=stop_loss
             )
-        return  # do not process other logic in same candle
+        return
 
     # -----------------------------------------
-    # SHORT ENTRY (SELL to OPEN)
+    # SHORT ENTRY
     # -----------------------------------------
     if weighted_score <= SELL_THRESHOLD:
-
         if pm.position != "SELL":
             print(f"🔴 SHORT ENTRY | Score {weighted_score:.2f} ≤ {SELL_THRESHOLD}")
-
             log_signal("SHORT ENTRY", weighted_score, price)
             send_message_sync(f"🔴 SHORT ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
 
@@ -77,7 +92,7 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
         return
 
     # -----------------------------------------
-    # HOLD SIGNAL
+    # HOLD
     # -----------------------------------------
     print(f"⚪ HOLD | Price {price:.2f} | Score {weighted_score:.2f}")
     log_signal("HOLD", weighted_score, price)
