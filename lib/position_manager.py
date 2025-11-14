@@ -2,11 +2,11 @@ import datetime
 import json
 import os
 
-
 from lib.telegram_bot import send_message_sync
-from lib.vars import trade_amount, symbol
+from lib.vars import trade_amount, symbol as BOT_SYMBOL
 from lib.database_manager import record_trade
 from lib.indicators import technical_score
+
 
 class PositionManager:
     """
@@ -21,13 +21,15 @@ class PositionManager:
         self.entry_time = None
         self.quantity = 0.0
         self.pnl = 0.0
+        self.take_profit = 1   # as % (example: 1 = 1%)
+        self.stop_loss = 0.5   # as % (example: 0.5 = 0.5%)
 
-        # Try to load last saved state (for persistence)
+        # Load last saved state
         self.load_state()
 
     # ---------- Position management ----------
 
-    def open_position(self, side, price, quantity = trade_amount, take_profit=1.0, stop_loss=0.5):
+    def open_position(self, side, price, quantity=trade_amount, take_profit=1, stop_loss=0.5):
         self.position = side
         self.entry_price = price
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
@@ -37,21 +39,24 @@ class PositionManager:
         self.pnl = 0.0
         self.save_state()
 
-        message = (f"✅ Opened {side} at {price:.2f} (qty: {quantity} )\n"
-                   f"TP: {take_profit * 100}%      |         SL: {stop_loss * 100}%\n")
+        message = (
+            f"✅ Opened {side} at {price:.2f} (qty: {quantity})\n"
+            f"TP: {take_profit}%      |         SL: {stop_loss}%\n"
+        )
         send_message_sync(message)
         print(message)
 
-
-    def check_auto_close(self, current_price, symbol):
+    def check_auto_close(self, current_price):
         if not self.position:
             return
+
+        symbol = BOT_SYMBOL  # Always load symbol safely
 
         pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
-        # --- Auto close conditions ---
+        # --- Auto closing ---
         if pnl_percent >= self.take_profit:
             message = f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n"
             send_message_sync(message)
@@ -62,52 +67,65 @@ class PositionManager:
             send_message_sync(message)
             self.close_position(current_price, symbol)
 
-
-
-    def close_position(self, price, symbol, df=None):
+    def close_position(self, price, symbol=BOT_SYMBOL, df=None):
         if not self.position:
             print("⚠️ No open position to close.\n")
             return None
+
+        # Always enforce symbol
+        if not symbol:
+            symbol = BOT_SYMBOL
 
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
         self.pnl = pnl_percent
+
         message = (
             f"💰 Closed {self.position} at {price:.2f}\n"
-            f"PnL: {pnl_percent:.2f}% (TP={self.take_profit * 100}%, SL={self.stop_loss * 100}%)"
+            f"PnL: {pnl_percent:.2f}% (TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
         print(message)
         send_message_sync(message)
 
+        # --- Save trade to DB ---
         trade_id = None
         try:
             print(f"🧾 Saving trade to DB: {symbol} | {self.position} | {pnl_percent:.2f}%")
+
             trade_id = record_trade(
                 symbol=symbol,
                 side=self.position,
                 entry_price=float(self.entry_price),
                 exit_price=float(price),
                 pnl_percent=float(pnl_percent),
-                tp_hit=bool(pnl_percent >= self.take_profit),
-                sl_hit=bool(pnl_percent <= -self.stop_loss)
+                tp_hit=1 if pnl_percent >= self.take_profit else 0,
+                sl_hit=1 if pnl_percent <= -self.stop_loss else 0
             )
+
             print(f"✅ Trade saved successfully. Trade ID = {trade_id}")
+
         except Exception as e:
             print(f"❌ DB Error while saving trade: {e}")
 
-        # --- Record exit indicator snapshot (if df available) ---
+        # --- Record exit indicators ---
         if df is not None and trade_id is not None:
             try:
                 print("📊 Recording exit indicator snapshot...")
                 total_score = technical_score(df, symbol=symbol)
-                technical_score(datetime.datetime.utcnow(), symbol, {"total": total_score}, trade_id=trade_id)
+                technical_score(
+                    datetime.datetime.utcnow(),
+                    symbol,
+                    {"total": total_score},
+                    trade_id=trade_id
+                )
             except Exception as e:
                 print(f"⚠️ Could not record exit indicators: {e}")
 
         self.reset()
         return pnl_percent
+
     def reset(self):
         """Clear all position data (after closing)."""
         self.position = None
@@ -120,27 +138,31 @@ class PositionManager:
     # ---------- Persistence ----------
 
     def save_state(self):
-        """Save current position state to disk (so it survives restarts)."""
         state = {
             "position": self.position,
             "entry_price": self.entry_price,
             "entry_time": self.entry_time,
             "quantity": self.quantity,
             "pnl": self.pnl,
+            "take_profit": self.take_profit,
+            "stop_loss": self.stop_loss,
         }
         with open(self.save_file, "w") as f:
             json.dump(state, f)
 
     def load_state(self):
-        """Load last saved position from file (if exists)."""
         if os.path.exists(self.save_file):
             try:
                 with open(self.save_file, "r") as f:
                     state = json.load(f)
+
                     self.position = state.get("position")
                     self.entry_price = state.get("entry_price", 0.0)
                     self.entry_time = state.get("entry_time")
                     self.quantity = state.get("quantity", 0.0)
                     self.pnl = state.get("pnl", 0.0)
+                    self.take_profit = state.get("take_profit", 1)
+                    self.stop_loss = state.get("stop_loss", 0.5)
+
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")

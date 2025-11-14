@@ -1,9 +1,12 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import datetime
-from lib.vars import cfg  # still okay to load YAML
+from lib.vars import cfg
 
-# --- Connect using full DATABASE_URL ---
+
+# ---------------------------------------------
+#  DB CONNECTION
+# ---------------------------------------------
 def get_connection():
     return psycopg2.connect(
         cfg["DATABASE_URL"],
@@ -11,55 +14,81 @@ def get_connection():
     )
 
 
-# --- Record a trade ---
+# ---------------------------------------------
+#  RECORD TRADE
+# ---------------------------------------------
 def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=False, sl_hit=False):
+    if not symbol:
+        print("⚠️ No symbol provided, skipping database insert.")
+        return None
+
     conn = get_connection()
     cur = conn.cursor()
 
+    try:
+        # Convert all types to safe Python primitives
+        entry_price = float(entry_price)
+        exit_price = float(exit_price)
+        pnl_percent = float(pnl_percent)
 
- # ✅ Convert all NumPy types to native Python types
-    entry_price = float(entry_price)
-    exit_price = float(exit_price)
-    pnl_percent = float(pnl_percent)
-    tp_hit = bool(tp_hit)
-    sl_hit = bool(sl_hit)
+        # Postgres wants integers for booleans (TRUE/FALSE also work)
+        tp_hit = int(bool(tp_hit))
+        sl_hit = int(bool(sl_hit))
 
-    cur.execute("""
-        INSERT INTO trades (
-            timestamp_open, timestamp_close, symbol, side,
-            entry_price, exit_price, pnl_percent, take_profit_hit, stop_loss_hit
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, (
-        datetime.datetime.utcnow(),
-        datetime.datetime.utcnow(),
-        symbol,
-        side,
-        entry_price,
-        exit_price,
-        pnl_percent,
-        tp_hit,
-        sl_hit
-    ))
-    trade_id = cur.fetchone()[0]
+        cur.execute("""
+            INSERT INTO trades (
+                timestamp_open,
+                timestamp_close,
+                symbol,
+                side,
+                entry_price,
+                exit_price,
+                pnl_percent,
+                take_profit_hit,
+                stop_loss_hit
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            datetime.datetime.utcnow(),
+            datetime.datetime.utcnow(),
+            symbol,
+            side,
+            entry_price,
+            exit_price,
+            pnl_percent,
+            tp_hit,
+            sl_hit
+        ))
 
-    conn.commit()
-    cur.close()
-    conn.close()
-    return trade_id
-# --- Get stats ---
+        trade_id = cur.fetchone()["id"]  # SAFE fetch
+
+        conn.commit()
+        return trade_id
+
+    except Exception as e:
+        print(f"❌ Database error in record_trade(): {e}")
+        return None
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ---------------------------------------------
+#  GET STATS
+# ---------------------------------------------
 def get_stats():
     conn = get_connection()
     cur = conn.cursor()
 
     try:
-        # Total trades + avg pnl
         cur.execute("SELECT COUNT(*) AS total, COALESCE(AVG(pnl_percent), 0) AS avg_pnl FROM trades")
         totals = cur.fetchone() or {"total": 0, "avg_pnl": 0}
+
         total_trades = totals.get("total", 0)
         avg_pnl = totals.get("avg_pnl", 0)
 
-        # Winrate
         cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
         wins = cur.fetchone() or {"wins": 0}
         winrate = (wins.get("wins", 0) / total_trades * 100) if total_trades > 0 else 0
@@ -78,17 +107,25 @@ def get_stats():
         "winrate": winrate
     }
 
-# Record scores to database immediately
+
+# ---------------------------------------------
+#  RECORD INDICATOR SCORES
+# ---------------------------------------------
 def record_scores(timestamp, symbol, scores, trade_id=None):
+    if not symbol:
+        print("⚠️ No symbol provided to record_scores(). Skipping.")
+        return
+
     conn = get_connection()
     cur = conn.cursor()
 
     try:
         cur.execute("""
             INSERT INTO indicator_scores (
-                timestamp, symbol, rsi, volume, macd,
-                candlestick, bollinger, macd_divergence,
-                ma_confluence, total, trade_id
+                timestamp, symbol,
+                rsi, volume, macd, candlestick,
+                bollinger, macd_divergence, ma_confluence,
+                total, trade_id
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
@@ -104,9 +141,12 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
             scores.get("total", 0),
             trade_id
         ))
+
         conn.commit()
+
     except Exception as e:
         print(f"⚠️ Database error in record_scores(): {e}")
+
     finally:
         cur.close()
         conn.close()
