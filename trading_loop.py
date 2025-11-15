@@ -1,72 +1,111 @@
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+from binance.exceptions import BinanceAPIException
 
-from lib.market_data import get_data, get_futures_price, get_usdt_balance
-from lib.indicators import technical_score
-from lib.signals import signals
-from lib.position_manager import PositionManager
 from lib.vars import (
-    cfg,
+    client,
     symbol,
-    take_profit,
-    stop_loss,
-    price_interval,
-    indicator_interval
+    trade_amount,
+    loop_interval,
 )
+from lib.market_data import get_futures_price, get_usdt_balance
+from lib.telegram_bot import send_message_sync
+from lib.signals import signals  # you should already have this
+
+class PositionManager:
+    def __init__(self):
+        self.position_side = None  # "LONG", "SHORT", or None
+        self.entry_price = None
+        self.qty = 0.0
+
+    def open_position(self, side: str, price: float):
+        self.position_side = side
+        self.entry_price = price
+        self.qty = trade_amount
+
+    def close_position(self):
+        self.position_side = None
+        self.entry_price = None
+        self.qty = 0.0
+
+
+pm = PositionManager()
+
+def place_futures_order(side: str, quantity: float):
+    """Market order on Futures USDT-M."""
+    try:
+        order = client.futures_create_order(
+            symbol=symbol,
+            side=side,
+            type="MARKET",
+            quantity=quantity
+        )
+        return order
+    except BinanceAPIException as e:
+        print(f"⚠️ Futures order error: {e}")
+        send_message_sync(f"⚠️ Order error: {e}")
+        return None
+    except Exception as e:
+        print(f"⚠️ Unknown order error: {e}")
+        send_message_sync(f"⚠️ Unknown order error: {e}")
+        return None
 
 def trading_loop():
-    pm = PositionManager()
-    print("🌀 Trading loop started using MARK PRICE...")
-
-    last_indicator_update = datetime.utcnow()
+    """Main infinite trading loop."""
+    send_message_sync(f"🚀 Trading loop started for <b>{symbol}</b> (Futures)")
 
     while True:
-
-        # ---------------------------------------------------------
-        # FAST LOOP — Futures Mark Price every X seconds
-        # ---------------------------------------------------------
         try:
-            price = get_futures_price(symbol)     # <<< NOW USING MARK PRICE
-            if price is None:
-                print("⚠️ Could not fetch mark price, skipping.")
-                time.sleep(price_interval)
+            mark_price = get_futures_price(symbol)
+            ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{ts}] Mark Price: {mark_price}")
+
+            if mark_price is None:
+                time.sleep(loop_interval)
                 continue
 
-            pm.check_auto_close(price, symbol)
+            # Get signal from your strategy
+            signal = signals(symbol, mark_price)  # implement in lib/signals.py
 
-            # Heartbeat log
-            print(f"[{datetime.utcnow()}] Mark Price: {price}")
+            # --- Position logic ---
+            if pm.position_side is None:
+                # No open position → only react to new entry signals
+                if signal == "BUY":
+                    order = place_futures_order("BUY", trade_amount)
+                    if order:
+                        pm.open_position("LONG", mark_price)
+                        send_message_sync(f"✅ Opened <b>LONG</b> at {mark_price}")
+                elif signal == "SELL":
+                    order = place_futures_order("SELL", trade_amount)
+                    if order:
+                        pm.open_position("SHORT", mark_price)
+                        send_message_sync(f"✅ Opened <b>SHORT</b> at {mark_price}")
 
+            else:
+                # Position already open → allow exit or reverse signals
+                if pm.position_side == "LONG" and signal == "SELL":
+                    order = place_futures_order("SELL", pm.qty)
+                    if order:
+                        pnl_pct = (mark_price - pm.entry_price) / pm.entry_price * 100
+                        send_message_sync(
+                            f"🔻 Closed LONG at {mark_price} | PnL: {pnl_pct:.2f}%"
+                        )
+                        pm.close_position()
+
+                elif pm.position_side == "SHORT" and signal == "BUY":
+                    order = place_futures_order("BUY", pm.qty)
+                    if order:
+                        pnl_pct = (pm.entry_price - mark_price) / pm.entry_price * 100
+                        send_message_sync(
+                            f"🔺 Closed SHORT at {mark_price} | PnL: {pnl_pct:.2f}%"
+                        )
+                        pm.close_position()
+
+            time.sleep(loop_interval)
+
+        except KeyboardInterrupt:
+            print("🛑 Trading loop stopped by user.")
+            break
         except Exception as e:
-            print(f"⚠️ Price update error: {e}")
-
-        # ---------------------------------------------------------
-        # DYNAMIC POSITION SIZE (compounding)
-        # ---------------------------------------------------------
-        balance = get_usdt_balance()
-        risk_pct = cfg.get("risk_percentage", 0.01)
-
-        trade_value_usdt = balance * risk_pct         # risk % of total balance
-        trade_amount = trade_value_usdt / price       # convert USDT → ETH
-
-        # ---------------------------------------------------------
-        # SLOW LOOP — Indicators + signals every Y seconds
-        # ---------------------------------------------------------
-        now = datetime.utcnow()
-
-        if now - last_indicator_update >= timedelta(seconds=indicator_interval):
-
-            try:
-                print("📡 Updating indicators + running signals...")
-                df = get_data(symbol)
-                signals(df, price, symbol, pm, trade_amount, take_profit, stop_loss)
-
-            except Exception as e:
-                print(f"⚠️ Indicator update error: {e}")
-
-            last_indicator_update = now
-
-        # ---------------------------------------------------------
-        # Sleep until next price tick
-        # ---------------------------------------------------------
-        time.sleep(price_interval)
+            print(f"⚠️ Error in trading_loop: {e}")
+            time.sleep(loop_interval)

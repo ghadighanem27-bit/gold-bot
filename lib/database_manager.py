@@ -8,11 +8,47 @@ from lib.vars import cfg
 #  DB CONNECTION
 # ---------------------------------------------
 def get_connection():
-    return psycopg2.connect(
-        cfg["DATABASE_URL"],
-        cursor_factory=RealDictCursor
-    )
+    db_url = cfg["database"]["url"]
+    return psycopg2.connect(db_url)
 
+def get_stats():
+    """
+    Returns basic stats for /stats command.
+    Assumes a table 'technical_scores' with a numeric 'total' column representing PnL/score.
+    If anything fails, returns zeros gracefully.
+    """
+    try:
+        conn = get_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute("""
+            SELECT
+                COUNT(*)::int AS total_trades,
+                COALESCE(AVG(total), 0)::float AS avg_pnl,
+                COALESCE(
+                    100.0 * SUM(CASE WHEN total > 0 THEN 1 ELSE 0 END) 
+                    / NULLIF(COUNT(*), 0),
+                    0
+                )::float AS winrate
+            FROM technical_scores;
+        """)
+
+        row = cur.fetchone() or {}
+        cur.close()
+        conn.close()
+
+        return {
+            "total_trades": row.get("total_trades", 0),
+            "avg_pnl": row.get("avg_pnl", 0.0),
+            "winrate": row.get("winrate", 0.0),
+        }
+    except Exception as e:
+        print(f"⚠️ DB stats error: {e}")
+        return {
+            "total_trades": 0,
+            "avg_pnl": 0.0,
+            "winrate": 0.0,
+        }
 
 # ---------------------------------------------
 #  RECORD TRADE (FINAL WORKING VERSION)
