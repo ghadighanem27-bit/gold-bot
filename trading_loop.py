@@ -6,12 +6,18 @@ from lib.vars import (
     client,
     symbol,
     trade_amount,
+    take_profit,
+    stop_loss,
     loop_interval,
 )
-from lib.market_data import get_futures_price, get_usdt_balance
+from lib.market_data import get_futures_price, get_usdt_balance, get_data
 from lib.telegram_bot import send_message_sync
-from lib.signals import signals  # you should already have this
+from lib.signals import signals
 
+
+# ================================================
+# POSITION MANAGER
+# ================================================
 class PositionManager:
     def __init__(self):
         self.position_side = None  # "LONG", "SHORT", or None
@@ -19,7 +25,7 @@ class PositionManager:
         self.qty = 0.0
 
     def open_position(self, side: str, price: float):
-        self.position_side = side
+        self.position_side = side  # LONG/SHORT
         self.entry_price = price
         self.qty = trade_amount
 
@@ -31,28 +37,38 @@ class PositionManager:
 
 pm = PositionManager()
 
+
+# ================================================
+# ORDER FUNCTION
+# ================================================
 def place_futures_order(side: str, quantity: float):
-    """Market order on Futures USDT-M."""
+    """Place a MARKET futures order (TESTNET or LIVE depending on vars)."""
     try:
         order = client.futures_create_order(
             symbol=symbol,
             side=side,
             type="MARKET",
-            quantity=quantity
+            quantity=quantity,
         )
         return order
+
     except BinanceAPIException as e:
         print(f"⚠️ Futures order error: {e}")
         send_message_sync(f"⚠️ Order error: {e}")
         return None
+
     except Exception as e:
         print(f"⚠️ Unknown order error: {e}")
         send_message_sync(f"⚠️ Unknown order error: {e}")
         return None
 
+
+# ================================================
+# MAIN LOOP
+# ================================================
 def trading_loop():
-    """Main infinite trading loop."""
-    send_message_sync(f"🚀 Trading loop started for <b>{symbol}</b> (Futures)")
+    send_message_sync(f"🚀 Trading loop started for <b>{symbol}</b> (Futures Testnet)")
+    print(f"🚀 Trading loop started for {symbol}")
 
     while True:
         try:
@@ -64,47 +80,56 @@ def trading_loop():
                 time.sleep(loop_interval)
                 continue
 
-            # Get signal from your strategy
-            # --- Call signals() depending on its signature ---
+            # -------------------------------------------------------------
+            # Fetch candles for strategy (df)
+            # -------------------------------------------------------------
             try:
-                import inspect
-                sig = inspect.signature(signals)
-                params = len(sig.parameters)
+                df = get_data(symbol)
+            except Exception as e:
+                print(f"⚠️ Failed to fetch candles: {e}")
+                df = None
 
-                if params == 1:
-                    signal = signals(mark_price)
-
-                elif params == 2:
-                    signal = signals(symbol, mark_price)
-
-                elif params == 3:
-                    signal = signals(symbol, mark_price, pm)
-
-                else:
-                    print(f"⚠️ signals() has unsupported number of arguments: {params}")
-                    signal = None
-
+            # -------------------------------------------------------------
+            # CALL SIGNALS() WITH THE CORRECT PARAMETERS
+            # -------------------------------------------------------------
+            try:
+                signal = signals(
+                    df=df,
+                    price=mark_price,
+                    symbol=symbol,
+                    pm=pm,
+                    trade_amount=trade_amount,
+                    take_profit=take_profit,
+                    stop_loss=stop_loss,
+                )
             except Exception as e:
                 print(f"⚠️ Error calling signals(): {e}")
                 signal = None
 
+            # Debug print
+            print(f"➡️ Signal: {signal}")
 
-            # --- Position logic ---
+            # ===============================================
+            # ENTRY LOGIC
+            # ===============================================
             if pm.position_side is None:
-                # No open position → only react to new entry signals
+
                 if signal == "BUY":
                     order = place_futures_order("BUY", trade_amount)
                     if order:
                         pm.open_position("LONG", mark_price)
-                        send_message_sync(f"✅ Opened <b>LONG</b> at {mark_price}")
+                        send_message_sync(f"🟩 Opened <b>LONG</b> at {mark_price}")
+
                 elif signal == "SELL":
                     order = place_futures_order("SELL", trade_amount)
                     if order:
                         pm.open_position("SHORT", mark_price)
-                        send_message_sync(f"✅ Opened <b>SHORT</b> at {mark_price}")
+                        send_message_sync(f"🟥 Opened <b>SHORT</b> at {mark_price}")
 
+            # ===============================================
+            # EXIT / FLIP LOGIC
+            # ===============================================
             else:
-                # Position already open → allow exit or reverse signals
                 if pm.position_side == "LONG" and signal == "SELL":
                     order = place_futures_order("SELL", pm.qty)
                     if order:
@@ -123,11 +148,14 @@ def trading_loop():
                         )
                         pm.close_position()
 
+            # LOOP SLEEP
             time.sleep(loop_interval)
 
         except KeyboardInterrupt:
             print("🛑 Trading loop stopped by user.")
             break
+
         except Exception as e:
             print(f"⚠️ Error in trading_loop: {e}")
+            send_message_sync(f"⚠️ Error in trading_loop: {e}")
             time.sleep(loop_interval)
