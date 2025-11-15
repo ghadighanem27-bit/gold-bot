@@ -1,6 +1,6 @@
 # Binance Config
-api_key: "wB2D5uwQdNwbJajBMUfr1AsmKQmAakSYT1kl8gwIVYy9ZJeKneeXi2pIg0wkBucw"
-api_secret: "VZbSaK6gtcAyvdCcCfIHNvFS0HlCoOEID0N0kkcEyPmoglMtCu3O2UkOxVGziviz"
+api_key: "${BINANCE_API_KEY}"
+api_secret: "${BINANCE_API_SECRET}"
 base_url: "https://testnet.binancefuture.com/fapi"
 
 # Telegram config
