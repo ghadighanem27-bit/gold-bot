@@ -112,6 +112,19 @@ def trading_loop():
             # ===============================================
             # ENTRY LOGIC
             # ===============================================
+            
+            # ---------------------------------------------------------
+            #  COOLDOWN CHECK — Do not enter new trades during cooldown
+            # ---------------------------------------------------------
+            if pm.cooldown_until is not None:
+                now = datetime.datetime.utcnow()
+                if now < pm.cooldown_until:
+                    remaining = int((pm.cooldown_until - now).total_seconds())
+                    print(f"⏳ Cooldown active ({remaining}s left). Skipping entries.")
+                    time.sleep(loop_interval)
+                    continue
+
+
             if pm.position_side is None:
 
                 if signal == "BUY":
