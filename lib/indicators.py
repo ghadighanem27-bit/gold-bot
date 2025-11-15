@@ -87,48 +87,52 @@ def volume_score(volumes, spike_ratio=1.5):
 # --- Candlestick Patterns ---
 def candlestick_score(opens, highs, lows, closes):
     """
-    Analyze candlestick patterns and return a score out of 8:
-      8 = strong bullish pattern
-      4 = neutral / indecisive
-      0 = strong bearish pattern
+    Analyze candlestick patterns and return a score from 0 to 1.
+    SAFE VERSION — prevents uninitialized variables.
     """
     max_score = 8
+
     o = np.array(opens, dtype=float)
     h = np.array(highs, dtype=float)
     l = np.array(lows, dtype=float)
     c = np.array(closes, dtype=float)
 
-    # --- Common bullish & bearish patterns ---
-    bullish = [
-        talib.CDLHAMMER(o, h, l, c),
-        talib.CDLMORNINGSTAR(o, h, l, c),
-        talib.CDLPIERCING(o, h, l, c),
-        talib.CDLDRAGONFLYDOJI(o, h, l, c)
-    ]
+    # Initialize safely
+    bull_score = 0.0
+    bear_score = 0.0
 
-    bearish = [
-        talib.CDLHANGINGMAN(o, h, l, c),
-        talib.CDLENGULFING(o, h, l, c),  # same function, negative values = bearish
-        talib.CDLEVENINGSTAR(o, h, l, c),
-        talib.CDLDARKCLOUDCOVER(o, h, l, c),
-        talib.CDLGRAVESTONEDOJI(o, h, l, c)
-    ]
+    try:
+        bullish = [
+            talib.CDLHAMMER(o, h, l, c),
+            talib.CDLENGULFING(o, h, l, c),
+            talib.CDLMORNINGSTAR(o, h, l, c),
+            talib.CDLPIERCING(o, h, l, c),
+            talib.CDLDRAGONFLYDOJI(o, h, l, c),
+        ]
 
-    cap = 200.0  # TA-Lib patterns typically in [-100, 100]
-    bull_score = min(bull_score, cap)
-    bear_score = max(bear_score, -cap)
+        bearish = [
+            talib.CDLHANGINGMAN(o, h, l, c),
+            talib.CDLEVENINGSTAR(o, h, l, c),
+            talib.CDLDARKCLOUDCOVER(o, h, l, c),
+            talib.CDLGRAVESTONEDOJI(o, h, l, c),
+        ]
 
-    # Avoid division by zero
-    total = bull_score + bear_score
+        bull_score = sum(b[-1] for b in bullish if b[-1] > 0)
+        bear_score = sum(b[-1] for b in bearish if b[-1] < 0)
+
+    except Exception as e:
+        print(f"⚠️ TA-Lib candlestick error: {e}")
+        return 0.5  # neutral fallback
+
+    total = bull_score + abs(bear_score)
+
     if total == 0:
-        return max_score / 2  # Neutral
+        return 0.5  # neutral when no patterns found
 
-    # Continuous score formula: weighted proportion of bullishness
-    score = max_score * (bull_score / total)
+    # Normalize to 0–1
+    score = bull_score / total
 
-    # Clamp between 0 and max_score
-    score = max(0, min(max_score, score))
-    score /= max_score  # Normalize to 0-1
+    score = max(0, min(score, 1))
     print(f" Candle Stick | score {score:.2f}")
     return score
 
