@@ -82,12 +82,12 @@ def trading_loop():
 
                 print("🧮 Updating LTF + HTF scores...")
 
-                df_ltf = get_data(symbol, timeframe=LTF_TIMEFRAME)
-                df_htf = get_data(symbol, timeframe=HTF_TIMEFRAME)
+                df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
+                df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
 
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
-
+                
                 cached_signal = confirm_signal_performance(ltf_score, htf_score)
 
                 last_score_time = current_ts
