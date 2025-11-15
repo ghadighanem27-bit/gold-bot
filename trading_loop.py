@@ -9,6 +9,7 @@ from lib.vars import (
     stop_loss,
     loop_interval,
 )
+from lib.indicators import technical_score
 from lib.market_data import get_futures_price, get_data
 from lib.telegram_bot import send_message_sync
 from lib.signals import signals
@@ -87,7 +88,7 @@ def trading_loop():
 
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
-                
+
                 cached_signal = confirm_signal_performance(ltf_score, htf_score)
 
                 last_score_time = current_ts
