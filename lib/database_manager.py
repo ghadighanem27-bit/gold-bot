@@ -140,16 +140,14 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
             )
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
-            timestamp,
-            symbol,
-            scores.get("rsi", 0),
-            scores.get("volume", 0),
-            scores.get("macd", 0),
-            scores.get("candlestick", 0),
-            scores.get("bollinger", 0),
-            scores.get("macd_divergence", 0),
-            scores.get("ma_confluence", 0),
-            scores.get("total", 0),
+            scores.get("rsi"),
+            scores.get("volume"),
+            scores.get("macd"),
+            scores.get("candlestick"),
+            scores.get("bollinger"),
+            scores.get("macd_divergence"),
+            scores.get("ma_confluence"),
+            scores.get("total"),
             trade_id
         ))
 
