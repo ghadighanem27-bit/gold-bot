@@ -65,7 +65,29 @@ def trading_loop():
                 continue
 
             # Get signal from your strategy
-            signal = signals(symbol, mark_price)  # implement in lib/signals.py
+            # --- Call signals() depending on its signature ---
+            try:
+                import inspect
+                sig = inspect.signature(signals)
+                params = len(sig.parameters)
+
+                if params == 1:
+                    signal = signals(mark_price)
+
+                elif params == 2:
+                    signal = signals(symbol, mark_price)
+
+                elif params == 3:
+                    signal = signals(symbol, mark_price, pm)
+
+                else:
+                    print(f"⚠️ signals() has unsupported number of arguments: {params}")
+                    signal = None
+
+            except Exception as e:
+                print(f"⚠️ Error calling signals(): {e}")
+                signal = None
+
 
             # --- Position logic ---
             if pm.position_side is None:
