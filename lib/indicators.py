@@ -343,5 +343,6 @@ def technical_score(df, symbol=None):
     else:
         print("⚠️ No symbol provided, skipping database insert.")
 
+    print(f"----- {total:.2f} -----\n")
     return total
 
