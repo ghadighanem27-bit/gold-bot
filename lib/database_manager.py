@@ -117,10 +117,7 @@ def get_stats():
 # ---------------------------------------------
 #  RECORD INDICATOR SCORES
 # ---------------------------------------------
-def record_scores(timestamp, symbol, scores, trade_id=None):
-    if not symbol:
-        print("⚠️ No symbol provided to record_scores(). Skipping.")
-        return
+def record_scores(symbol, scores, trade_id=None):
 
     # Convert sets to integers if needed
     for key, value in scores.items():
@@ -133,12 +130,11 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
     try:
         cur.execute("""
             INSERT INTO technical_scores (
-                timestamp, symbol,
                 rsi, volume, macd, candlestick,
                 bollinger, macd_divergence, ma_confluence,
                 total, trade_id
             )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
             scores.get("rsi"),
             scores.get("volume"),
@@ -159,3 +155,4 @@ def record_scores(timestamp, symbol, scores, trade_id=None):
     finally:
         cur.close()
         conn.close()
+
