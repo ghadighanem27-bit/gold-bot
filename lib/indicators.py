@@ -101,7 +101,6 @@ def candlestick_score(opens, highs, lows, closes):
     # --- Common bullish & bearish patterns ---
     bullish = [
         talib.CDLHAMMER(o, h, l, c),
-        talib.CDLENGULFING(o, h, l, c),
         talib.CDLMORNINGSTAR(o, h, l, c),
         talib.CDLPIERCING(o, h, l, c),
         talib.CDLDRAGONFLYDOJI(o, h, l, c)
@@ -115,8 +114,9 @@ def candlestick_score(opens, highs, lows, closes):
         talib.CDLGRAVESTONEDOJI(o, h, l, c)
     ]
 
-    bull_score = sum([b[-1] for b in bullish if b[-1] > 0])
-    bear_score = sum([b[-1] for b in bearish if b[-1] < 0])
+    cap = 200.0  # TA-Lib patterns typically in [-100, 100]
+    bull_score = min(bull_score, cap)
+    bear_score = max(bear_score, -cap)
 
     # Avoid division by zero
     total = bull_score + bear_score
@@ -199,25 +199,82 @@ def macd_divergence_score(prices, lookback=5):
 
 def ma_confluence_score(prices):
     closes = np.array(prices, dtype=float)
-    ma_fast = talib.SMA(closes, timeperiod=10)[-1]
-    ma_medium = talib.SMA(closes, timeperiod=20)[-1]
-    ma_slow = talib.SMA(closes, timeperiod=50)[-1]
+    ma_fast_series = talib.SMA(closes, timeperiod=10)
+    ma_med_series = talib.SMA(closes, timeperiod=20)
+    ma_slow_series = talib.SMA(closes, timeperiod=50)
 
-    score = 0
+    ma_fast = ma_fast_series[-1]
+    ma_medium = ma_med_series[-1]
+    ma_slow = ma_slow_series[-1]
 
-    # Si MA rapide > MA moyenne > MA lente → tendance haussière forte
+    score = 0.5  # default neutral in [0,1] terms
+
+    # ensure we have valid values
+    if np.isnan(ma_fast) or np.isnan(ma_medium) or np.isnan(ma_slow):
+        print(f" MA Confluence | score {score:.2f}")
+        return score
+
+    # distance-based trend strength
+    # normalize by price to avoid instrument bias
+    price = closes[-1]
+    dist_fast_med = (ma_fast - ma_medium) / price
+    dist_med_slow = (ma_medium - ma_slow) / price
+
+    bullish_strength = 0
+    bearish_strength = 0
+
+    # Bullish stacking
     if ma_fast > ma_medium > ma_slow:
-        score = 10
-    # Si MA lente > MA moyenne > MA rapide → tendance baissière forte
+        bullish_strength = max(0, dist_fast_med) + max(0, dist_med_slow)
+    # Bearish stacking
     elif ma_slow > ma_medium > ma_fast:
-        score = 0
-    else:
-        score = 5  # neutre ou tendance incertaine
+        bearish_strength = max(0, -dist_fast_med) + max(0, -dist_med_slow)
 
-    score /= 10  # Normalize to 0-1
+    # Convert to score 0–1 with a soft cap
+    scale = 0.05  # sensitivity
+    trend_score = np.tanh((bullish_strength - bearish_strength) / scale)
+
+    # trend_score in [-1,1] → map to [0,1]
+    score = 0.5 + 0.5 * trend_score
 
     print(f" MA Confluence | score {score:.2f}")
-    return score
+    return float(score)
+
+def market_regime(df):
+    """
+    Simple regime detector:
+      returns ('trending', strength) or ('ranging', strength)
+      strength in [0,1]
+    """
+    closes = df["c"].astype(float).values
+    highs = df["h"].astype(float).values
+    lows  = df["l"].astype(float).values
+
+    # ADX for trend strength
+    try:
+        adx = talib.ADX(highs, lows, closes, timeperiod=14)
+        adx_val = adx[-1]
+    except Exception:
+        adx_val = 20  # neutral-ish
+
+    # Bollinger bandwidth as a proxy for volatility state
+    upper, middle, lower = talib.BBANDS(closes, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
+    bb_width = (upper[-1] - lower[-1]) / middle[-1] if middle[-1] != 0 else 0
+
+    # Simple logic:
+    # ADX > 25 and bb_width reasonably high → trending
+    trending_strength = 0.0
+    ranging_strength = 0.0
+
+    if adx_val > 25 and bb_width > 0.02:
+        trending_strength = min(1.0, (adx_val - 25) / 15.0)  # ADX 25–40 → 0–1
+    else:
+        ranging_strength = 1.0 - min(1.0, max(0.0, (adx_val - 15) / 10.0))
+
+    if trending_strength >= ranging_strength:
+        return "trending", trending_strength
+    else:
+        return "ranging", ranging_strength
 
 def technical_score(df, symbol=None):
     prices = df["c"].astype(float).values
@@ -237,16 +294,37 @@ def technical_score(df, symbol=None):
         "ma_confluence": float(ma_confluence_score(prices)),
     }
 
+    regime, regime_strength = market_regime(df)
+    print(f" REGIME | {regime} ({regime_strength:.2f})")
+
     # --- Weighted total ---
     weights = {
         "rsi": 0.15,
-        "macd": 0.20,
+        "macd": 0.16,
         "volume": 0.10,
         "candlestick": 0.10,
-        "bollinger": 0.15,
-        "macd_divergence": 0.15,
-        "ma_confluence": 0.15,
+        "bollinger": 0.18,
+        "macd_divergence": 0.13,
+        "ma_confluence": 0.18,
     }
+
+      # Light regime-aware adjustments (no big surgery)
+    if regime == "trending":
+        factor = 0.1 * regime_strength  # up to ±10%
+        weights["macd"] *= (1 + factor)
+        weights["ma_confluence"] *= (1 + factor)
+        weights["bollinger"] *= (1 - factor)
+        weights["rsi"] *= (1 - factor)
+    else:  # ranging
+        factor = 0.1 * regime_strength
+        weights["bollinger"] *= (1 + factor)
+        weights["rsi"] *= (1 + factor)
+        weights["macd"] *= (1 - factor)
+        weights["ma_confluence"] *= (1 - factor)
+
+    # optional: renormalize weights to sum to 1
+    w_sum = sum(weights.values())
+    weights = {k: v / w_sum for k, v in weights.items()}
 
     total = sum(scores[k] * weights[k] for k in scores)
     print(f" TOTAL TECHNICAL SCORE | {total:.2f}")

@@ -31,7 +31,7 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     weighted_score = score * 100     # convert to 0–100 scale
 
     BUY_THRESHOLD = 68
-    SELL_THRESHOLD = 33
+    SELL_THRESHOLD = 32
 
     print(f"📊 Score={weighted_score:.2f} | Price={price:.2f}")
 
