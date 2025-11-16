@@ -23,15 +23,12 @@ def get_price(symbol: str) -> float:
         raise ValueError("Could not fetch latest price")
 
 def get_futures_price(symbol):
-    """
-    Uses websocket price if available.
-    Falls back to API ONLY if websocket not ready.
-    """
-    ws_price = get_ws_price(symbol)
-    if ws_price is not None:
-        return ws_price  # fast, free, no API limits
+    # Preferred: websocket real-time price
+    price = get_ws_price(symbol)
+    if price is not None:
+        return price
 
-    # fallback (rare)
+    # Fallback to API (rare)
     try:
         data = client.futures_mark_price(symbol=symbol)
         return float(data["markPrice"])

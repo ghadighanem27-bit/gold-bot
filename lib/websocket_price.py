@@ -1,44 +1,45 @@
 # lib/websocket_price.py
-from binance.websocket.futures.websocket_client import FuturesWebsocketClient
+from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClient
 from lib.vars import cfg
 import threading
 
-# Shared state for your bot to read the latest price
+# Shared dictionary storing all symbol prices
 LATEST_MARK_PRICE = {}
 
 def start_websocket(symbol):
     """
-    Starts a websocket stream for the futures mark price of a symbol.
-    Updates LATEST_MARK_PRICE[symbol] continuously.
+    Starts a websocket stream for Binance USDT-M Futures mark price.
+    Updates LATEST_MARK_PRICE[symbol] with real-time prices.
     """
 
-    def handle_message(msg):
+    def handle_message(_, msg):
         try:
             price = float(msg["p"])
             LATEST_MARK_PRICE[symbol] = price
         except:
             pass
 
-    ws = FuturesWebsocketClient()
+    ws = UMFuturesWebsocketClient()
 
-    # Select environment (real vs testnet)
+    # Choose correct environment
     if cfg["binance"]["futures_env"] == "testnet":
-        ws.FUTURES_URL = "wss://stream.binancefuture.com/ws"
+        ws.API_URL = "wss://stream.binancefuture.com"
     else:
-        ws.FUTURES_URL = "wss://fstream.binance.com/ws"
+        ws.API_URL = "wss://fstream.binance.com"
 
-    # Start websocket client
     ws.start()
-    ws.mark_price(symbol=symbol, id=1, callback=handle_message)
+
+    # Subscribe to mark price stream
+    ws.mark_price(
+        symbol=symbol.lower(),  # lowercase required for this client
+        id=1,
+        callback=handle_message
+    )
 
     print(f"📡 WebSocket started for {symbol}")
-
     return ws
 
 
 def get_ws_price(symbol):
-    """
-    Safely return the latest websocket mark price,
-    or None if not yet received.
-    """
+    """Return latest streamed price or None if no data yet."""
     return LATEST_MARK_PRICE.get(symbol)
