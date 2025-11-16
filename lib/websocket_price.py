@@ -3,43 +3,45 @@ from binance.websocket.um_futures.websocket_client import UMFuturesWebsocketClie
 from lib.vars import cfg
 import threading
 
-# Shared dictionary storing all symbol prices
+# Store latest streamed prices
 LATEST_MARK_PRICE = {}
 
-def start_websocket(symbol):
-    """
-    Starts a websocket stream for Binance USDT-M Futures mark price.
-    Updates LATEST_MARK_PRICE[symbol] with real-time prices.
-    """
-
-    def handle_message(_, msg):
+def _ws_thread(symbol):
+    """Internal thread target → runs blocking websocket loop."""
+    
+    def handle(msg):
         try:
             price = float(msg["p"])
             LATEST_MARK_PRICE[symbol] = price
+            # print(f"{symbol} = {price}")  # Debug
         except:
             pass
 
+    # Create websocket client
     ws = UMFuturesWebsocketClient()
 
-    # Choose correct environment
+    # Select wss endpoint manually
     if cfg["binance"]["futures_env"] == "testnet":
-        ws.API_URL = "wss://stream.binancefuture.com"
+        ws._url = "wss://stream.binancefuture.com/ws"
     else:
-        ws.API_URL = "wss://fstream.binance.com"
+        ws._url = "wss://fstream.binance.com/ws"
 
-    ws.start()
+    # Subscribe to MARK PRICE stream
+    ws.mark_price(symbol.lower(), callback=handle)
 
-    # Subscribe to mark price stream
-    ws.mark_price(
-        symbol=symbol.lower(),  # lowercase required for this client
-        id=1,
-        callback=handle_message
-    )
+    print(f"📡 WebSocket running for {symbol}")
 
-    print(f"📡 WebSocket started for {symbol}")
-    return ws
+    # This blocks forever — that's why it's inside a thread
+    ws.run()
+
+
+def start_websocket(symbol):
+    """Starts websocket listener on a background thread."""
+    t = threading.Thread(target=_ws_thread, args=(symbol,), daemon=True)
+    t.start()
+    print(f"▶️ WebSocket thread started for {symbol}")
 
 
 def get_ws_price(symbol):
-    """Return latest streamed price or None if no data yet."""
+    """Return last streamed mark price or None."""
     return LATEST_MARK_PRICE.get(symbol)
