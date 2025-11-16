@@ -14,5 +14,4 @@ if __name__ == "__main__":
     t1 = threading.Thread(target=trading_loop, daemon=True)
     t1.start()
 
-    # Start Telegram listener (blocking)
-    start_telegram_listener()
+    t1.join()
