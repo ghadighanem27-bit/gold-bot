@@ -1,5 +1,6 @@
 import pandas as pd
 from lib.vars import client
+from lib.websocket_price import get_ws_price
 
 def get_data(symbol: str, interval: str = "5m", limit: int = 200) -> pd.DataFrame:
     """Fetch recent klines (candles) for a given symbol (Futures testnet/real-compatible)."""
@@ -21,13 +22,17 @@ def get_price(symbol: str) -> float:
     except Exception:
         raise ValueError("Could not fetch latest price")
 
-def get_futures_price(symbol: str) -> float | None:
-    """Get mark price for the futures symbol."""
+def get_futures_price(symbol):
+    # Preferred: websocket real-time price
+    price = get_ws_price(symbol)
+    if price is not None:
+        return price
+
+    # Fallback to API (rare)
     try:
         data = client.futures_mark_price(symbol=symbol)
         return float(data["markPrice"])
-    except Exception as e:
-        print(f"⚠️ Futures mark price error: {e}")
+    except:
         return None
 
 def get_usdt_balance() -> float:
