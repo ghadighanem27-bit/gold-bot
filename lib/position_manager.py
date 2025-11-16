@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
+from lib.vars import cfg
 from lib.database_manager import record_trade
 from lib.indicators import technical_score  # kept in case you use it later
 
@@ -29,9 +30,8 @@ class PositionManager:
 
     def __init__(self, save_file="position_state.json"):
         if save_file is None:
-            from lib.vars import cfg
+            save_file = cfg["trading"].get("position_file", "position_state.json")
 
-        save_file = cfg["trading"].get("position_file", "position_state.json")
         self.save_file = save_file
         self.position = None            # "BUY" or "SELL"
         self.entry_price = 0.0

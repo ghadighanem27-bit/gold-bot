@@ -69,6 +69,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # -------------------------------------------------------------
 # Telegram listener (for bot.py)
 # -------------------------------------------------------------
+"""
 def start_telegram_listener():
     if not bot_token:
         print("⚠️ No Telegram bot token configured, listener not started.")
@@ -84,3 +85,4 @@ def start_telegram_listener():
 # Standalone run (optional)
 if __name__ == "__main__":
     start_telegram_listener()
+"""
