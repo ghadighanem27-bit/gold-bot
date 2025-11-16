@@ -1,7 +1,7 @@
 import threading
 from lib.vars import cfg, symbol
 from trading_loop import trading_loop
-from lib.telegram_bot import start_telegram_listener
+from lib.telegram_bot import send_message_sync
 from lib.websocket_price import start_websocket
 
 if __name__ == "__main__":
