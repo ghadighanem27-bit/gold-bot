@@ -8,7 +8,7 @@ telegram:
   chat_id: "1131830593"
 
 trading:
-  symbol: "ETHUSDT"
+  symbol: "BTCUSDT"
   trade_amount: 0.01
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
@@ -16,6 +16,7 @@ trading:
   stop_loss: 1.0 # in % (for info / strategy)
   break_even_enabled: true
   break_even_trigger_pct: 0.4
+  position_file: "position_btc.json"
 
 timing:
   price_interval_seconds: 5

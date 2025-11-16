@@ -28,6 +28,10 @@ def format_quantity(qty):
 class PositionManager:
 
     def __init__(self, save_file="position_state.json"):
+        if save_file is None:
+            from lib.vars import cfg
+
+        save_file = cfg["trading"].get("position_file", "position_state.json")
         self.save_file = save_file
         self.position = None            # "BUY" or "SELL"
         self.entry_price = 0.0

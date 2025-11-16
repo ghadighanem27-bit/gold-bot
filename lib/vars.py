@@ -39,6 +39,7 @@ trade_amount = trading_cfg["trade_amount"]
 timeframe = trading_cfg["timeframe"]
 take_profit = trading_cfg["take_profit"]
 stop_loss = trading_cfg["stop_loss"]
+position_file = cfg["trading"].get("position_file", "position_state.json")
 break_even_enabled = trading_cfg.get("break_even_enabled", True)
 break_even_trigger_pct = trading_cfg.get("break_even_trigger_pct", 0.4)
 
