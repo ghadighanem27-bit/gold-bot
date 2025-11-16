@@ -9,7 +9,7 @@ telegram:
 
 trading:
   symbol: "ETHUSDT"
-  trade_amount: 0.01
+  trade_amount: 0.05
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
