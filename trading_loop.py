@@ -10,7 +10,8 @@ from lib.vars import (
     loop_interval,
 )
 from lib.indicators import technical_score
-from lib.market_data import get_futures_price, get_data, record_scores
+from lib.market_data import get_futures_price, get_data
+from lib.database_manager import record_scores
 from lib.telegram_bot import send_message_sync
 from lib.signals import signals
 from lib.position_manager import PositionManager
