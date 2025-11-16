@@ -10,7 +10,7 @@ from lib.vars import (
     loop_interval,
 )
 from lib.indicators import technical_score
-from lib.market_data import get_futures_price, get_data
+from lib.market_data import get_futures_price, get_data, record_scores
 from lib.telegram_bot import send_message_sync
 from lib.signals import signals
 from lib.position_manager import PositionManager
@@ -90,6 +90,18 @@ def trading_loop():
                 htf_score = technical_score(df_htf, symbol)
 
                 cached_signal = confirm_signal_performance(ltf_score, htf_score)
+
+                # --- SAFE SCORE LOGGING ---
+                try:
+                    combined_scores = {
+                        "ltf_score": float(ltf_score),
+                        "htf_score": float(htf_score),
+                        "reinforced_signal": cached_signal
+                    }
+                    record_scores(symbol, combined_scores)
+                    print("✅ Scores saved to DB.")
+                except Exception as e:
+                    print(f"⚠️ Failed to record scores: {e}")
 
                 last_score_time = current_ts
 
