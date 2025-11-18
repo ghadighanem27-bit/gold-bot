@@ -1,10 +1,11 @@
 import psycopg2
 import os
+from lib.vars import cfg
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_conn():
-    return psycopg2.connect(DATABASE_URL)
+    return psycopg2.connect(cfg["database"]["url"])
 
 
 def record_score(symbol, ltf_score, htf_score, reinforced_score, decision):
@@ -47,4 +48,5 @@ def update_score_with_result(score_id, pnl):
 
     except Exception as e:
         print(f"⚠️ Failed to update score result: {e}")
+        
     return score_id

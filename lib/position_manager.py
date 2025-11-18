@@ -7,7 +7,7 @@ from datetime import timedelta
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
 from lib.vars import cfg
-from lib.database_manager import update_score_with_result
+from lib.database_manager import update_score_with_result, record_score
 from lib.indicators import technical_score  # kept in case you use it later
 
 
@@ -219,21 +219,6 @@ class PositionManager:
             print(f"📌 Futures Close Executed: {close_order}")
         except Exception as e:
             print(f"❌ Binance Futures close error: {e}")
-
-        # --- Save trade to DB ---
-        try:
-            trade_id = record_trade(
-                symbol=symbol,
-                side=self.position,
-                entry_price=float(self.entry_price),
-                exit_price=float(price),
-                pnl_percent=float(pnl_percent),
-                tp_hit=pnl_percent >= self.take_profit,
-                sl_hit=pnl_percent <= -self.stop_loss
-            )
-            print(f"✅ Trade saved to DB (ID: {trade_id})")
-        except Exception as e:
-            print(f"❌ DB Error while saving trade: {e}")
 
         if self.last_score_id is not None:
             update_score_with_result(self.last_score_id, pnl_percent)
