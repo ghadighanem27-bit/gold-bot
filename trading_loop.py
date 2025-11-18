@@ -11,7 +11,7 @@ from lib.vars import (
 )
 from lib.indicators import technical_score
 from lib.market_data import get_futures_price, get_data
-from lib.database_manager import record_scores
+from lib.database_manager import record_score
 from lib.telegram_bot import send_message_sync
 from lib.signals import signals
 from lib.position_manager import PositionManager
@@ -90,23 +90,29 @@ def trading_loop():
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
 
-                cached_signal = confirm_signal_performance(ltf_score, htf_score)
+                # Compute reinforced score
+                reinforced = (0.65 * ltf_score) + (0.35 * htf_score)
 
-                # --- SAFE SCORE LOGGING ---
+                # Get the final decision (BUY / SELL / NONE)
+                cached_signal = confirm_signal_performance(ltf_score, htf_score)
+                score_id = None
+                # --- SAVE SCORES TO DB ---
                 try:
-                    combined_scores = {
-                        "ltf_score": float(ltf_score),
-                        "htf_score": float(htf_score),
-                        "reinforced_signal": cached_signal
-                    }
-                    record_scores(symbol, combined_scores)
+                    record_score(symbol=symbol,
+                                ltf_score=float(ltf_score),
+                                htf_score=float(htf_score),
+                                reinforced_score=float(reinforced),
+                                decision=cached_signal,
+                                trade_id=None   # no trade yet
+                                )
+                    pm.last_score_id = score_id
                     print("✅ Scores saved to DB.")
                 except Exception as e:
                     print(f"⚠️ Failed to record scores: {e}")
 
                 last_score_time = current_ts
 
-                print(f"📊 LTF={ltf_score:.3f}, HTF={htf_score:.3f} → Final={cached_signal}")
+                print(f"📊 LTF={ltf_score:.3f}, HTF={htf_score:.3f}, R={reinforced:.3f} → Final={cached_signal}")
 
             # Always use the last known signal
             signal = cached_signal

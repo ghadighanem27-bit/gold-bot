@@ -1,8 +1,7 @@
 from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from lib.vars import cfg
-from lib.database_manager import get_stats
-import asyncio
+import asyncio 
 import threading
 
 # -------------------------------------------------------------
@@ -55,16 +54,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /stats command
 # -------------------------------------------------------------
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    stats = get_stats()
-    message = (
-        "📊 <b>BOT PERFORMANCE STATS</b>\n"
-        "-----------------------------\n"
-        f"🏆 Winrate: <b>{stats['winrate']:.2f}%</b>\n"
-        f"📈 Average PnL: <b>{stats['avg_pnl']:.4f}</b>\n"
-        f"📊 Total Trades: <b>{stats['total_trades']}</b>\n"
-        "-----------------------------"
-    )
-    await update.message.reply_text(message, parse_mode="HTML")
+    await update.message.reply_text("📊 Stats feature is disabled temporarily.")
 
 # -------------------------------------------------------------
 # Telegram listener (for bot.py)
