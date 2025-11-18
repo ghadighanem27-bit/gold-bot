@@ -7,7 +7,7 @@ from datetime import timedelta
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
 from lib.vars import cfg
-from lib.database_manager import record_trade, update_score_with_result
+from lib.database_manager import update_score_with_result
 from lib.indicators import technical_score  # kept in case you use it later
 
 
