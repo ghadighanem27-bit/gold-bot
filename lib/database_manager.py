@@ -1,194 +1,71 @@
 import psycopg2
-from psycopg2.extras import RealDictCursor
-import datetime
+import os
 from lib.vars import cfg
 
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ---------------------------------------------
-#  DB CONNECTION
-# ---------------------------------------------
-def get_connection():
-    db_url = cfg["database"]["url"]
-    return psycopg2.connect(db_url)
+def get_conn():
+    return psycopg2.connect(cfg["database"]["url"])
 
-def get_stats():
+
+def record_score(symbol, ltf_score, htf_score, reinforced_score, decision, trade_id=None):
     """
-    Returns basic stats for /stats command.
-    Assumes a table 'technical_scores' with a numeric 'total' column representing PnL/score.
-    If anything fails, returns zeros gracefully.
+    Saves a score row. trade_id is optional (NULL = scoring cycle with no trade).
     """
     try:
-        conn = get_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        conn = get_conn()
+        cur = conn.cursor()
 
         cur.execute("""
-            SELECT
-                COUNT(*)::int AS total_trades,
-                COALESCE(AVG(total), 0)::float AS avg_pnl,
-                COALESCE(
-                    100.0 * SUM(CASE WHEN total > 0 THEN 1 ELSE 0 END) 
-                    / NULLIF(COUNT(*), 0),
-                    0
-                )::float AS winrate
-            FROM technical_scores;
-        """)
-
-        row = cur.fetchone() or {}
-        cur.close()
-        conn.close()
-
-        return {
-            "total_trades": row.get("total_trades", 0),
-            "avg_pnl": row.get("avg_pnl", 0.0),
-            "winrate": row.get("winrate", 0.0),
-        }
-    except Exception as e:
-        print(f"⚠️ DB stats error: {e}")
-        return {
-            "total_trades": 0,
-            "avg_pnl": 0.0,
-            "winrate": 0.0,
-        }
-
-# ---------------------------------------------
-#  RECORD TRADE (FINAL WORKING VERSION)
-# ---------------------------------------------
-def record_trade(symbol, side, entry_price, exit_price, pnl_percent, tp_hit=False, sl_hit=False):
-    if not symbol:
-        print("⚠️ No symbol provided, skipping database insert.")
-        return None
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    try:
-        # Convert values to safe formats
-        entry_price = float(entry_price)
-        exit_price = float(exit_price)
-        pnl_percent = float(pnl_percent)
-
-        # Postgres BOOLEAN expects True/False
-        tp_hit = bool(tp_hit)
-        sl_hit = bool(sl_hit)
-
-        cur.execute("""
-            INSERT INTO trades (
-                timestamp_open,
-                timestamp_close,
-                symbol,
-                side,
-                entry_price,
-                exit_price,
-                pnl_percent,
-                take_profit_hit,
-                stop_loss_hit
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            RETURNING id
-        """, (
-            datetime.datetime.utcnow(),
-            datetime.datetime.utcnow(),
-            symbol,
-            side,
-            entry_price,
-            exit_price,
-            pnl_percent,
-            tp_hit,
-            sl_hit
-        ))
-
-        result = cur.fetchone()
-        if not result:
-            print("❌ ERROR: No trade ID returned by DB.")
-            return None
-
-        trade_id = result["id"]
-        conn.commit()
-
-        print(f"✅ Trade inserted into DB with ID {trade_id}")
-        return trade_id
-
-    except Exception as e:
-        print(f"❌ Database error in record_trade(): {e}")
-        return None
-
-    finally:
-        cur.close()
-        conn.close()
-
-
-# ---------------------------------------------
-#  GET STATS
-# ---------------------------------------------
-def get_stats():
-    conn = get_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute("SELECT COUNT(*) AS total, COALESCE(AVG(pnl_percent), 0) AS avg_pnl FROM trades")
-        totals = cur.fetchone() or {"total": 0, "avg_pnl": 0}
-
-        total_trades = totals.get("total", 0)
-        avg_pnl = totals.get("avg_pnl", 0)
-
-        cur.execute("SELECT COUNT(*) AS wins FROM trades WHERE pnl_percent > 0")
-        wins = cur.fetchone() or {"wins": 0}
-        winrate = (wins.get("wins", 0) / total_trades * 100) if total_trades > 0 else 0
-
-    except Exception as e:
-        print(f"⚠️ Database error in get_stats(): {e}")
-        total_trades, avg_pnl, winrate = 0, 0, 0
-
-    finally:
-        cur.close()
-        conn.close()
-
-    return {
-        "total_trades": total_trades,
-        "avg_pnl": avg_pnl,
-        "winrate": winrate
-    }
-
-
-# ---------------------------------------------
-#  RECORD INDICATOR SCORES
-# ---------------------------------------------
-def record_scores(symbol, scores, trade_id=None):
-
-    # Convert sets to integers if needed
-    for key, value in scores.items():
-        if isinstance(value, set):
-            scores[key] = sum(value)
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute("""
-            INSERT INTO technical_scores (
-                rsi, volume, macd, candlestick,
-                bollinger, macd_divergence, ma_confluence,
-                total, trade_id
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            scores.get("rsi"),
-            scores.get("volume"),
-            scores.get("macd"),
-            scores.get("candlestick"),
-            scores.get("bollinger"),
-            scores.get("macd_divergence"),
-            scores.get("ma_confluence"),
-            scores.get("total"),
-            trade_id
-        ))
+            INSERT INTO mtf_scores (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id))
 
         conn.commit()
-
-    except Exception as e:
-        print(f"⚠️ Database error in record_scores(): {e}")
-
-    finally:
         cur.close()
         conn.close()
 
+    except Exception as e:
+        print(f"⚠️ Failed to record score: {e}")
+
+
+def update_score_with_result(score_id, pnl):
+    """Called when a trade closes."""
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE mtf_scores
+            SET trade_result = %s
+            WHERE id = %s
+        """, (pnl, score_id))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"⚠️ Failed to update score result: {e}")
+        
+    return score_id
+
+def attach_trade_id_to_last_score(trade_id):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE mtf_scores
+            SET trade_id = %s
+            WHERE trade_id IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (trade_id,))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"⚠️ Failed to attach trade id: {e}")

@@ -1,6 +1,5 @@
 import datetime
 from lib.telegram_bot import send_message_sync
-from lib.database_manager import record_trade
 from lib.indicators import technical_score
 
 
