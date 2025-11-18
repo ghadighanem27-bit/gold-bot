@@ -1,4 +1,4 @@
-from telegram import Bot, Update, asyncio
+from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from lib.vars import cfg
 import threading
