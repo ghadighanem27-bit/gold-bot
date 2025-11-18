@@ -7,7 +7,7 @@ from datetime import timedelta
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
 from lib.vars import cfg
-from lib.database_manager import record_trade
+from lib.database_manager import record_trade, update_score_with_result
 from lib.indicators import technical_score  # kept in case you use it later
 
 
@@ -42,6 +42,7 @@ class PositionManager:
         self.stop_loss = 0.5
         self.cooldown_until = None
         self.last_trade_was_win = None
+        self.last_score_id = None
 
         # --- Break-even config ---
         self.break_even_enabled = True
@@ -175,6 +176,7 @@ class PositionManager:
             print("⚠️ No open position to close.")
             return None
 
+        # --- Compute PNL % ---
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
@@ -183,7 +185,15 @@ class PositionManager:
         was_win = pnl_percent >= 0
         self.last_trade_was_win = was_win
 
-        # Cooldown after loss
+        # --- Update score AFTER pnl is final ---
+        try:
+            if self.last_score_id is not None:
+                update_score_with_result(self.last_score_id, pnl_percent)
+                print(f"📊 Score updated with trade result: {pnl_percent:.2f}%")
+        except Exception as e:
+            print(f"⚠️ Score update failed: {e}")
+
+        # --- Cooldown after loss ---
         if not was_win:
             self.cooldown_until = datetime.datetime.utcnow() + timedelta(minutes=10)
             print(f"⏳ Cooldown triggered until {self.cooldown_until}")
@@ -194,20 +204,11 @@ class PositionManager:
             f"💰 Closed {self.position}\nPnL: {pnl_percent:.2f}% "
             f"(TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
-        print(
-            f"💰 Closed {self.position} at {price:.2f} | "
-            f"PnL: {pnl_percent:.2f}%"
-        )
+        print(f"💰 Closed {self.position} at {price:.2f} | PnL: {pnl_percent:.2f}%")
 
-        # ---- Close order on Binance Futures ----
+        # --- Close Binance Futures Order ---
         try:
             close_qty = format_quantity(self.quantity)
-        except Exception as e:
-            print(e)
-            # If quantity is invalid, do not attempt close order
-            return
-
-        try:
             close_order = client.futures_create_order(
                 symbol=symbol,
                 side="SELL" if self.position == "BUY" else "BUY",
@@ -216,11 +217,10 @@ class PositionManager:
                 reduceOnly=True
             )
             print(f"📌 Futures Close Executed: {close_order}")
-
         except Exception as e:
             print(f"❌ Binance Futures close error: {e}")
 
-        # ---- Save trade to DB ----
+        # --- Save trade to DB ---
         try:
             trade_id = record_trade(
                 symbol=symbol,
@@ -232,12 +232,15 @@ class PositionManager:
                 sl_hit=pnl_percent <= -self.stop_loss
             )
             print(f"✅ Trade saved to DB (ID: {trade_id})")
-
         except Exception as e:
             print(f"❌ DB Error while saving trade: {e}")
 
+        if self.last_score_id is not None:
+            update_score_with_result(self.last_score_id, pnl_percent)
+
         self.reset()
         return pnl_percent
+
 
     # ----------------------------------------------------
     def reset(self):
