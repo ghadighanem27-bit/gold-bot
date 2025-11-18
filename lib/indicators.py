@@ -2,7 +2,6 @@ import numpy as np
 import talib
 import ta
 import datetime
-from lib.database_manager import record_scores
 
 # --- RSI ---
 def get_rsi(df):
@@ -333,19 +332,8 @@ def technical_score(df, symbol=None):
     total = sum(scores[k] * weights[k] for k in scores)
     print(f" TOTAL TECHNICAL SCORE | {total:.2f}")
 
-    # --- Record indicator scores in database ---
-    timestamp = datetime.datetime.utcnow()
-
     # Add total to dict for DB insert
     scores["total"] = float(total)
-
-    if symbol:
-        try:
-            record_scores(timestamp, symbol, scores)
-        except Exception as e:
-            print(f"⚠️ Failed to record scores for {symbol}: {e}")
-    else:
-        print("⚠️ No symbol provided, skipping database insert.")
 
     print(f"----- {total:.2f} -----\n")
     return total
