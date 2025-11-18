@@ -8,19 +8,18 @@ def get_conn():
     return psycopg2.connect(cfg["database"]["url"])
 
 
-def record_score(symbol, ltf_score, htf_score, reinforced_score, decision):
+def record_score(symbol, ltf_score, htf_score, reinforced_score, decision, trade_id=None):
     """
-    Insert a new MTF score row.
-    trade_result stays NULL until trade closes.
+    Saves a score row. trade_id is optional (NULL = scoring cycle with no trade).
     """
     try:
         conn = get_conn()
         cur = conn.cursor()
 
         cur.execute("""
-            INSERT INTO mtf_scores (symbol, ltf_score, htf_score, reinforced_score, decision)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (symbol, ltf_score, htf_score, reinforced_score, decision))
+            INSERT INTO mtf_scores (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id))
 
         conn.commit()
         cur.close()
@@ -50,3 +49,23 @@ def update_score_with_result(score_id, pnl):
         print(f"⚠️ Failed to update score result: {e}")
         
     return score_id
+
+def attach_trade_id_to_last_score(trade_id):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE mtf_scores
+            SET trade_id = %s
+            WHERE trade_id IS NULL
+            ORDER BY id DESC
+            LIMIT 1
+        """, (trade_id,))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"⚠️ Failed to attach trade id: {e}")

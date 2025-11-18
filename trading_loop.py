@@ -95,16 +95,16 @@ def trading_loop():
 
                 # Get the final decision (BUY / SELL / NONE)
                 cached_signal = confirm_signal_performance(ltf_score, htf_score)
-
+                score_id = None
                 # --- SAVE SCORES TO DB ---
                 try:
-                    record_score(
-                        symbol=symbol,
-                        ltf_score=float(ltf_score),
-                        htf_score=float(htf_score),
-                        reinforced_score=float(reinforced),
-                        decision=cached_signal
-                    )
+                    record_score(symbol=symbol,
+                                ltf_score=float(ltf_score),
+                                htf_score=float(htf_score),
+                                reinforced_score=float(reinforced),
+                                decision=cached_signal,
+                                trade_id=None   # no trade yet
+                                )
                     pm.last_score_id = score_id
                     print("✅ Scores saved to DB.")
                 except Exception as e:

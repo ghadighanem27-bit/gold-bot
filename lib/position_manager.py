@@ -7,7 +7,7 @@ from datetime import timedelta
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
 from lib.vars import cfg
-from lib.database_manager import update_score_with_result, record_score
+from lib.database_manager import update_score_with_result, record_score,attach_trade_id_to_last_score
 from lib.indicators import technical_score  # kept in case you use it later
 
 
@@ -103,6 +103,19 @@ class PositionManager:
             print(f"⚠️ Error while checking order fill status: {e}")
             # Be safe: do NOT register position if we're not sure it filled
             return
+        
+        try:
+            attach_trade_id_to_last_score(self.last_trade_id)
+        except Exception as e:
+            print(f"⚠️ Failed to attach trade ID: {e}")
+        
+
+        # --- store the Binance trade/order ID ---
+        self.last_trade_id = order_id
+
+        # attach the trade ID to the most recent score cycle
+        from lib.database_manager import attach_trade_id_to_last_score
+        attach_trade_id_to_last_score(order_id)
 
         # 4) At this point, order is filled → register position locally
         self.position = side
