@@ -101,6 +101,19 @@ class PositionManager:
         except Exception as e:
             print(f"⚠️ Error checking order fill status: {e}")
             return
+        
+        try:
+            attach_trade_id_to_last_score(self.last_trade_id)
+        except Exception as e:
+            print(f"⚠️ Failed to attach trade ID: {e}")
+        
+
+        # --- store the Binance trade/order ID ---
+        self.last_trade_id = order_id
+
+        # attach the trade ID to the most recent score cycle
+        from lib.database_manager import attach_trade_id_to_last_score
+        attach_trade_id_to_last_score(order_id)
 
         # 4) SAVE the Binance trade ID
         self.last_trade_id = order_id
