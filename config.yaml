@@ -25,3 +25,4 @@ timing:
 
 database:
   url: "postgresql://postgres:vRbMZvLpoWdNwYMJceMpYssawyUDCKen@hopper.proxy.rlwy.net:40569/railway"
+
