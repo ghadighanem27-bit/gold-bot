@@ -3,338 +3,271 @@ import talib
 import ta
 import datetime
 
-# --- RSI ---
-def get_rsi(df):
-    rsi = ta.momentum.RSIIndicator(df["c"], window=14).rsi().iloc[-1]
-    price = df["c"].iloc[-1]
 
-    atr = ta.volatility.AverageTrueRange(high=df["h"], low=df["l"], close=df["c"],window=14).average_true_range().iloc[-1]
-
-    atr_ratio = (atr / price)*100 #ATR as % of price
-
-    atr_min = 0.01 #calm
-    atr_max = 2 #volatile
-
-    #linear scaling
-    rsi_power = 1.4 + ((atr_ratio - atr_min) / (atr_max-atr_min)) * (1.6 - 1.4)
-    
-    #clamp
-    rsi_power = max(min(rsi_power, 1.6), 1.4)
-
-    score = 1 - (rsi / 100) ** rsi_power
-    print(f" RSI | power {rsi_power:.2f} |  score {score:.2f}")
-
-    return score
-
-# --- MACD ---
-def get_macd(prices, fastperiod=12, slowperiod=26, signalperiod=9, lookback=20):
-    macd, signal, hist = talib.MACD(
-        np.array(prices, dtype=float),
-        fastperiod=fastperiod,
-        slowperiod=slowperiod,
-        signalperiod=signalperiod
-    )
-    macd_val, signal_val, hist_val = macd[-1], signal[-1], hist[-1]
-    diff = macd_val - signal_val
-
-    # Define max_diff and max_hist over recent 'lookback' bars
-    max_diff = np.max(np.abs(macd[-lookback:] - signal[-lookback:]))
-    max_hist = np.max(np.abs(hist[-lookback:]))
-    
-    # Compute continuous score
-    score = 5 + 5 * (diff / max_diff) + 5 * (hist_val / max_hist)
-    
-    # Clamp score between 0 and 10
-    score = max(0, min(10, score))
-
-    score = score / 10  # Normalize to 0-1
-    print(f" MACD | score {score:.2f}")
-    
-    return score
-
-# --- Volume ---
-def volume_score(volumes, spike_ratio=1.5):
-
-    
-    low_ratio = 0.7
-    vols = np.array(volumes, dtype=float)
-    avg_vol = np.mean(vols[-20:])
-    current = vols[-1]
-    # Continuous scoring
-    ratio = current / avg_vol
-    
-
-    
-
-    if ratio > spike_ratio:
-        # Scale from spike_ratio → 2*spike_ratio → 5–10
-        score = 5 + 5 * min((ratio - spike_ratio) / spike_ratio, 1)
-    elif ratio < low_ratio:
-        # Scale from 0 → low_ratio → 0–5
-        score = 5 * min(ratio / low_ratio, 1)
-    else:
-        # Neutral
-        score = 5
-    
-    # Clamp to 0–10
-    score = max(0, min(10, score))
-    # Normalize to 0–1
-    score /= 10
-    print(f" Volume | score {score:.2f}")
-    return score
-
-# --- Candlestick Patterns ---
-def candlestick_score(opens, highs, lows, closes):
-    """
-    Analyze candlestick patterns and return a score from 0 to 1.
-    SAFE VERSION — prevents uninitialized variables.
-    """
-    max_score = 8
-
-    o = np.array(opens, dtype=float)
-    h = np.array(highs, dtype=float)
-    l = np.array(lows, dtype=float)
-    c = np.array(closes, dtype=float)
-
-    # Initialize safely
-    bull_score = 0.0
-    bear_score = 0.0
-
-    try:
-        bullish = [
-            talib.CDLHAMMER(o, h, l, c),
-            talib.CDLENGULFING(o, h, l, c),
-            talib.CDLMORNINGSTAR(o, h, l, c),
-            talib.CDLPIERCING(o, h, l, c),
-            talib.CDLDRAGONFLYDOJI(o, h, l, c),
-        ]
-
-        bearish = [
-            talib.CDLHANGINGMAN(o, h, l, c),
-            talib.CDLEVENINGSTAR(o, h, l, c),
-            talib.CDLDARKCLOUDCOVER(o, h, l, c),
-            talib.CDLGRAVESTONEDOJI(o, h, l, c),
-        ]
-
-        bull_score = sum(b[-1] for b in bullish if b[-1] > 0)
-        bear_score = sum(b[-1] for b in bearish if b[-1] < 0)
-
-    except Exception as e:
-        print(f"⚠️ TA-Lib candlestick error: {e}")
-        return 0.5  # neutral fallback
-
-    total = bull_score + abs(bear_score)
-
-    if total == 0:
-        return 0.5  # neutral when no patterns found
-
-    # Normalize to 0–1
-    score = bull_score / total
-
-    score = max(0, min(score, 1))
-    print(f" Candle Stick | score {score:.2f}")
-    return score
-
-# --- Bollinger Bands ---
-def bollinger_score(prices, period=20, nbdev=2):
-    """
-    Calculate Bollinger Bands and return a score out of 5:
-      5 = strong buy (price near lower band)
-      3 = hold (price near middle band)
-      0 = sell (price near upper band)
-    """
-    closes = np.array(prices, dtype=float)
-    upper, middle, lower = talib.BBANDS(
-        closes, timeperiod=period, nbdevup=nbdev, nbdevdn=nbdev, matype=0
-    )
-    cur = closes[-1]
-    upper_val, lower_val = upper[-1], lower[-1]
-
-  # Prevent divide-by-zero
-    max_score = 5
-    if (upper_val - lower_val) == 0:
-        return max_score / 2  # neutral
-
-    # Position within the band: 0 → at upper band, 1 → at lower band
-    band_pos = (upper_val - cur) / (upper_val - lower_val)
-    
-    # Continuous score
-    score = max_score * band_pos
-
-    # Clamp between 0 and max_score
-    score = max(0, min(max_score, score))
-    # Normalize to 0–1
-    score /= max_score
-    print(f" Bollinger | score {score:.2f}")
-    return score
-
-# --- MACD Divergence ---
-def macd_divergence_score(prices, lookback=5):
-    closes = np.array(prices, dtype=float)
-    macd, signal, _ = talib.MACD(closes)
-    price_diff = closes[-1] - closes[-lookback]
-    macd_diff = macd[-1] - macd[-lookback]
-    max_score = 5
-
-    
-    # Compute divergence strength
-    divergence = -price_diff * macd_diff  # negative * positive → bullish, etc.
-    
-    # Scale score proportionally
-    # We'll normalize by the largest magnitude over lookback
-    price_range = np.max(closes[-lookback:]) - np.min(closes[-lookback:])
-    macd_range = np.max(macd[-lookback:]) - np.min(macd[-lookback:])
-    if price_range == 0 or macd_range == 0:
-        return max_score / 2  # neutral
-    
-    # Normalized divergence [-1, 1]
-    norm_div = divergence / (price_range * macd_range)
-    
-    # Convert to 0 → max_score
-    score = max_score * (0.5 + 0.5 * norm_div)  # 0.5 = neutral
-    
-    # Clamp between 0 and max_score
-    score = max(0, min(max_score, score))
-    score /= max_score  # Normalize to 0-1
-    print(f" MACD Divergence | score {score:.2f}")
-    return score
+# Small helper
+def _clamp_0_100(x):
+    return float(max(0.0, min(100.0, x)))
 
 
-def ma_confluence_score(prices):
-    closes = np.array(prices, dtype=float)
-    ma_fast_series = talib.SMA(closes, timeperiod=10)
-    ma_med_series = talib.SMA(closes, timeperiod=20)
-    ma_slow_series = talib.SMA(closes, timeperiod=50)
+# ---------------------------------------------------------------------------
+# 1) MACD MOMENTUM (signal-line slope)
+# ---------------------------------------------------------------------------
+def macd_momentum_score(prices, fast=12, slow=26, signalperiod=9, lookback=5):
+    closes = np.asarray(prices, dtype=float)
+    macd, signal, hist = talib.MACD(closes, fastperiod=fast,
+                                    slowperiod=slow, signalperiod=signalperiod)
 
-    ma_fast = ma_fast_series[-1]
-    ma_medium = ma_med_series[-1]
-    ma_slow = ma_slow_series[-1]
+    sig = signal[-lookback:]
+    x = np.arange(len(sig))
+    # simple linear regression slope of the signal line
+    slope, _ = np.polyfit(x, sig, 1)
 
-    score = 0.5  # default neutral in [0,1] terms
-
-    # ensure we have valid values
-    if np.isnan(ma_fast) or np.isnan(ma_medium) or np.isnan(ma_slow):
-        print(f" MA Confluence | score {score:.2f}")
-        return score
-
-    # distance-based trend strength
-    # normalize by price to avoid instrument bias
+    # normalize slope relative to price level
     price = closes[-1]
-    dist_fast_med = (ma_fast - ma_medium) / price
-    dist_med_slow = (ma_medium - ma_slow) / price
+    norm = slope / (price + 1e-9)
 
-    bullish_strength = 0
-    bearish_strength = 0
+    # scale & squash into 0–100
+    raw = norm * 3_000     # sensitivity factor
+    score = 50.0 + 50.0 * np.tanh(raw)
+    score = _clamp_0_100(score)
 
-    # Bullish stacking
-    if ma_fast > ma_medium > ma_slow:
-        bullish_strength = max(0, dist_fast_med) + max(0, dist_med_slow)
-    # Bearish stacking
-    elif ma_slow > ma_medium > ma_fast:
-        bearish_strength = max(0, -dist_fast_med) + max(0, -dist_med_slow)
+    print(f" MACD Momentum | score {score:.1f}")
+    return score
 
-    # Convert to score 0–1 with a soft cap
-    scale = 0.05  # sensitivity
-    trend_score = np.tanh((bullish_strength - bearish_strength) / scale)
 
-    # trend_score in [-1,1] → map to [0,1]
-    score = 0.5 + 0.5 * trend_score
-
-    print(f" MA Confluence | score {score:.2f}")
-    return float(score)
-
-def market_regime(df):
-    """
-    Simple regime detector:
-      returns ('trending', strength) or ('ranging', strength)
-      strength in [0,1]
-    """
+# ---------------------------------------------------------------------------
+# 2) PRICE / VOLUME DIVERGENCE (OBV divergence)
+# ---------------------------------------------------------------------------
+def obv_divergence_score(df, lookback=20):
     closes = df["c"].astype(float).values
-    highs = df["h"].astype(float).values
-    lows  = df["l"].astype(float).values
+    vols = df["v"].astype(float).values
 
-    # ADX for trend strength
-    try:
-        adx = talib.ADX(highs, lows, closes, timeperiod=14)
-        adx_val = adx[-1]
-    except Exception:
-        adx_val = 20  # neutral-ish
+    obv = talib.OBV(closes, vols)
 
-    # Bollinger bandwidth as a proxy for volatility state
-    upper, middle, lower = talib.BBANDS(closes, timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
-    bb_width = (upper[-1] - lower[-1]) / middle[-1] if middle[-1] != 0 else 0
+    p_ret = (closes[-1] - closes[-lookback]) / (closes[-lookback] + 1e-9)
+    v_ret = (obv[-1] - obv[-lookback]) / (abs(obv[-lookback]) + 1e-9)
 
-    # Simple logic:
-    # ADX > 25 and bb_width reasonably high → trending
-    trending_strength = 0.0
-    ranging_strength = 0.0
+    # Divergence: OBV up while price flat/down → bullish
+    div = v_ret - p_ret
 
-    if adx_val > 25 and bb_width > 0.02:
-        trending_strength = min(1.0, (adx_val - 25) / 15.0)  # ADX 25–40 → 0–1
+    raw = div * 10      # sensitivity
+    score = 50.0 + 50.0 * np.tanh(raw)
+    score = _clamp_0_100(score)
+
+    print(f" OBV Divergence | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# 3) MARKET STRUCTURE (HH/HL/LH/LL)
+# ---------------------------------------------------------------------------
+def market_structure_score(df, swing_lookback=5):
+    closes = df["c"].astype(float).values
+
+    recent = closes[-(swing_lookback + 1):]
+    prev_max = recent[:-1].max()
+    prev_min = recent[:-1].min()
+    last = recent[-1]
+
+    # Simple classification
+    if last > prev_max:
+        # fresh breakout higher → very bullish
+        score = 80.0
+    elif last < prev_min:
+        # fresh breakdown → very bearish
+        score = 20.0
     else:
-        ranging_strength = 1.0 - min(1.0, max(0.0, (adx_val - 15) / 10.0))
+        # inside range → map relative position
+        pos = (last - prev_min) / (prev_max - prev_min + 1e-9)  # 0–1
+        score = 20.0 + 60.0 * pos  # 20–80 band
 
-    if trending_strength >= ranging_strength:
-        return "trending", trending_strength
-    else:
-        return "ranging", ranging_strength
+    score = _clamp_0_100(score)
+    print(f" Market Structure | score {score:.1f}")
+    return score
 
-def technical_score(df, symbol=None):
-    prices = df["c"].astype(float).values
-    volumes = df["v"].astype(float).values
-    opens = df["o"].astype(float).values
+
+# ---------------------------------------------------------------------------
+# 4) RELATIVE VOLUME + OBV DELTA
+# ---------------------------------------------------------------------------
+def rvol_obv_score(df, lookback=20):
+    closes = df["c"].astype(float).values
+    vols = df["v"].astype(float).values
+
+    # Relative volume
+    avg_vol = vols[-lookback:-1].mean()
+    rvol = vols[-1] / (avg_vol + 1e-9)
+
+    # OBV slope
+    obv = talib.OBV(closes, vols)
+    obv_slope = (obv[-1] - obv[-5]) / (abs(obv[-5]) + 1e-9)
+
+    # clamp rvol to reasonable range
+    rvol_norm = np.clip((rvol - 0.5) / 1.5, -1, 2)  # typical 0–2+
+    raw = 0.6 * rvol_norm + 0.4 * obv_slope * 10
+
+    score = 50.0 + 50.0 * np.tanh(raw)
+    score = _clamp_0_100(score)
+
+    print(f" RVOL + OBV | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# 5) BB SQUEEZE + EXPANSION
+# ---------------------------------------------------------------------------
+def bb_squeeze_score(prices, period=20, nbdev=2):
+    closes = np.asarray(prices, dtype=float)
+    upper, middle, lower = talib.BBANDS(closes, timeperiod=period,
+                                        nbdevup=nbdev, nbdevdn=nbdev, matype=0)
+
+    cur = closes[-1]
+    upper_val, mid_val, lower_val = upper[-1], middle[-1], lower[-1]
+
+    # Bandwidth as % of price
+    width = (upper_val - lower_val) / (mid_val + 1e-9)
+
+    recent_width = (upper - lower) / (middle + 1e-9)
+    ref = np.percentile(recent_width[-50:], 50)  # median
+
+    # squeeze is when width << median
+    squeeze = np.clip((ref - width) / (ref + 1e-9), -1, 1)
+    # price position inside bands (0 = upper, 1 = lower)
+    band_pos = (upper_val - cur) / (upper_val - lower_val + 1e-9)
+
+    raw = 1.2 * squeeze + 0.8 * (0.5 - band_pos)  # higher when squeeze + near lower/mid
+    score = 50.0 + 50.0 * np.tanh(raw)
+
+    score = _clamp_0_100(score)
+    print(f" BB Squeeze/Expansion | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# 6) RSI SYSTEM (value + slope + compression)
+# ---------------------------------------------------------------------------
+def rsi_system_score(df, period=14, slope_lookback=5):
+    closes = df["c"].astype(float).values
+    rsi = ta.momentum.RSIIndicator(pd_series := df["c"].astype(float), window=period).rsi().values
+
+    r = rsi[-1]
+    prev = rsi[-slope_lookback]
+    slope = (r - prev) / slope_lookback
+
+    # compression = how tight RSI has been (low std means compression)
+    window = rsi[-period:]
+    compression = 1.0 / (np.std(window) + 1e-6)  # bigger when squeezed
+
+    # base: prefer RSI between 50–65 with positive slope
+    center = 57.5
+    spread = 20.0
+    val_component = 1.0 - abs(r - center) / spread  # ~1 near center, <0 far
+    val_component = np.clip(val_component, -1, 1)
+
+    raw = 0.6 * val_component + 0.3 * (slope / 2.0) + 0.1 * np.tanh(compression / 5.0)
+    score = 50.0 + 50.0 * np.tanh(raw)
+
+    score = _clamp_0_100(score)
+    print(f" RSI System | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# 7) MA SLOPE + MULTI-TF ALIGNMENT
+# ---------------------------------------------------------------------------
+def ma_system_score(prices):
+    closes = np.asarray(prices, dtype=float)
+
+    ma_fast = talib.SMA(closes, timeperiod=10)
+    ma_med = talib.SMA(closes, timeperiod=20)
+    ma_slow = talib.SMA(closes, timeperiod=50)
+
+    f, m, s = ma_fast[-1], ma_med[-1], ma_slow[-1]
+    price = closes[-1]
+
+    # slopes
+    f_slope = (ma_fast[-1] - ma_fast[-5]) / (price + 1e-9)
+    m_slope = (ma_med[-1] - ma_med[-5]) / (price + 1e-9)
+
+    # alignment bonus
+    align = 0.0
+    if f > m > s:
+        align = 1.0        # bullish stacked
+    elif s > m > f:
+        align = -1.0       # bearish stacked
+
+    raw = 1.5 * f_slope * 20 + 1.0 * m_slope * 10 + 1.2 * align
+    score = 50.0 + 50.0 * np.tanh(raw)
+
+    score = _clamp_0_100(score)
+    print(f" MA System | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# 8) VOLATILITY REGIME (ATR change + ADX slope)
+# ---------------------------------------------------------------------------
+def volatility_regime_score(df, atr_period=14, adx_period=14):
+    closes = df["c"].astype(float).values
     highs = df["h"].astype(float).values
     lows = df["l"].astype(float).values
 
-    # --- Individual indicator scores ---
+    atr = talib.ATR(highs, lows, closes, timeperiod=atr_period)
+    adx = talib.ADX(highs, lows, closes, timeperiod=adx_period)
+
+    atr_change = (atr[-1] - atr[-5]) / (atr[-5] + 1e-9)
+    adx_slope = (adx[-1] - adx[-5]) / 20.0  # ADX is in 0–100
+
+    # trend-friendly regime: rising ATR + rising ADX
+    raw = 0.7 * atr_change * 5 + 0.9 * adx_slope
+    score = 50.0 + 50.0 * np.tanh(raw)
+
+    score = _clamp_0_100(score)
+    print(f" Volatility Regime | score {score:.1f}")
+    return score
+
+
+# ---------------------------------------------------------------------------
+# MASTER TECHNICAL SCORE (0–100)
+# ---------------------------------------------------------------------------
+def technical_score(df, symbol=None):
+    """
+    Returns a single technical score in the range [0, 100].
+
+    Higher → more bullish / higher probability to go long.
+    Lower  → more bearish / more short / avoid-long.
+    """
+
+    prices = df["c"].astype(float).values
+
     scores = {
-        "rsi": float(get_rsi(df)),
-        "macd": float(get_macd(prices)),
-        "volume": float(volume_score(volumes)),
-        "candlestick": float(candlestick_score(opens, highs, lows, prices)),
-        "bollinger": float(bollinger_score(prices)),
-        "macd_divergence": float(macd_divergence_score(prices)),
-        "ma_confluence": float(ma_confluence_score(prices)),
+        "macd_mom":        macd_momentum_score(prices),
+        "obv_div":         obv_divergence_score(df),
+        "market_struct":   market_structure_score(df),
+        "rvol_obv":        rvol_obv_score(df),
+        "bb_squeeze":      bb_squeeze_score(prices),
+        "rsi_system":      rsi_system_score(df),
+        "ma_system":       ma_system_score(prices),
+        "vol_regime":      volatility_regime_score(df),
     }
 
-    regime, regime_strength = market_regime(df)
-    print(f" REGIME | {regime} ({regime_strength:.2f})")
-
-    # --- Weighted total ---
+    # weights must sum to 1.0
     weights = {
-        "rsi": 0.15,
-        "macd": 0.16,
-        "volume": 0.10,
-        "candlestick": 0.10,
-        "bollinger": 0.18,
-        "macd_divergence": 0.13,
-        "ma_confluence": 0.18,
+        "macd_mom":      0.15,
+        "obv_div":       0.12,
+        "market_struct": 0.10,
+        "rvol_obv":      0.12,
+        "bb_squeeze":    0.14,
+        "rsi_system":    0.13,
+        "ma_system":     0.14,
+        "vol_regime":    0.10,
     }
 
-      # Light regime-aware adjustments (no big surgery)
-    if regime == "trending":
-        factor = 0.1 * regime_strength  # up to ±10%
-        weights["macd"] *= (1 + factor)
-        weights["ma_confluence"] *= (1 + factor)
-        weights["bollinger"] *= (1 - factor)
-        weights["rsi"] *= (1 - factor)
-    else:  # ranging
-        factor = 0.1 * regime_strength
-        weights["bollinger"] *= (1 + factor)
-        weights["rsi"] *= (1 + factor)
-        weights["macd"] *= (1 - factor)
-        weights["ma_confluence"] *= (1 - factor)
+    total = 0.0
+    for k, w in weights.items():
+        total += scores[k] * w
 
-    # optional: renormalize weights to sum to 1
-    w_sum = sum(weights.values())
-    weights = {k: v / w_sum for k, v in weights.items()}
+    total = _clamp_0_100(total)
 
-    total = sum(scores[k] * weights[k] for k in scores)
-    print(f" TOTAL TECHNICAL SCORE | {total:.2f}")
+    print(f" TOTAL TECHNICAL SCORE | {total:.1f}")
 
-    # Add total to dict for DB insert
-    scores["total"] = float(total)
-
-    print(f"----- {total:.2f} -----\n")
     return total
-
