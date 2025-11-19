@@ -8,8 +8,8 @@ telegram:
   chat_id: "1131830593"
 
 trading:
-  symbol: "ETHUSDT"
-  trade_amount: 0.05
+  symbol: "BTCUSDT"
+  trade_amount: 0.001 # in BTC
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
@@ -25,4 +25,3 @@ timing:
 
 database:
   url: "postgresql://postgres:vRbMZvLpoWdNwYMJceMpYssawyUDCKen@hopper.proxy.rlwy.net:40569/railway"
-
