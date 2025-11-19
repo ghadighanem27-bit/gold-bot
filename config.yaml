@@ -8,15 +8,15 @@ telegram:
   chat_id: "1131830593"
 
 trading:
-  symbol: "BTCUSDT"
-  trade_amount: 0.01 # in BTC
+  symbol: "PAXGUSDT"
+  trade_amount: 0.1 # in BTC
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
   stop_loss: 1.0 # in % (for info / strategy)
   break_even_enabled: true
   break_even_trigger_pct: 0.4
-  position_file: "position_btc.json"
+  position_file: "position_paxg.json"
 
 timing:
   price_interval_seconds: 5
@@ -25,4 +25,3 @@ timing:
 
 database:
   url: "postgresql://postgres:vRbMZvLpoWdNwYMJceMpYssawyUDCKen@hopper.proxy.rlwy.net:40569/railway"
-
