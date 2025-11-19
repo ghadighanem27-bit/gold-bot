@@ -56,9 +56,9 @@ class PositionManager:
     # ----------------------------------------------------
     def open_position(self, side, price, quantity, take_profit=1, stop_loss=0.5):
         """
-        side: "BUY" (long) or "SELL" (short)
-        price: current mark price (passed from trading_loop)
-        quantity: size in ETH (not USDT)
+        side: "BUY" or "SELL"
+        price: mark price
+        quantity: coin quantity (NOT USDT)
         """
 
         # 1) Validate quantity
@@ -68,7 +68,7 @@ class PositionManager:
             print(e)
             return
 
-        # 2) Send futures MARKET order
+        # 2) Send MARKET order
         try:
             order = client.futures_create_order(
                 symbol=BOT_SYMBOL,
@@ -81,12 +81,11 @@ class PositionManager:
             print(f"❌ Binance Futures order error: {e}")
             return
 
-        # 3) Ensure it actually gets filled (status may be NEW at first)
+        # 3) Ensure order is FILLED
         try:
             order_id = order.get("orderId")
             status = order.get("status")
 
-            # Poll a few times if still NEW
             retries = 5
             while status == "NEW" and retries > 0:
                 time.sleep(0.3)
@@ -96,33 +95,33 @@ class PositionManager:
                 retries -= 1
 
             if status not in ("FILLED", "PARTIALLY_FILLED"):
-                print(f"❌ Order not filled after retries, aborting position open: {order}")
+                print(f"❌ Order not filled after retries: {order}")
                 return
 
         except Exception as e:
-            print(f"⚠️ Error while checking order fill status: {e}")
-            # Be safe: do NOT register position if we're not sure it filled
+            print(f"⚠️ Error checking order fill status: {e}")
             return
-        
-        try:
-            attach_trade_id_to_last_score(self.last_trade_id)
-        except Exception as e:
-            print(f"⚠️ Failed to attach trade ID: {e}")
-        
 
-        # --- store the Binance trade/order ID ---
+        # 4) SAVE the Binance trade ID
         self.last_trade_id = order_id
 
-        # attach the trade ID to the most recent score cycle
-        from lib.database_manager import attach_trade_id_to_last_score
-        attach_trade_id_to_last_score(order_id)
+        # 5) ATTACH this trade ID to the latest technical score record
+        try:
+            from lib.database_manager import attach_trade_id_to_last_score
+            attach_trade_id_to_last_score(order_id)
+            print(f"🔗 Attached trade ID {order_id} to last score entry")
+        except Exception as e:
+            print(f"⚠️ Failed to attach trade ID: {e}")
 
-        # 4) At this point, order is filled → register position locally
-        self.position = side
-        # Use avgPrice from order if available, otherwise passed price
+        # 6) Register position locally
         avg_price = order.get("avgPrice")
-        self.entry_price = float(avg_price) if avg_price not in (None, "0.0", "0.00") else float(price)
+        if avg_price in (None, "0.0", "0.00"):
+            self.entry_price = float(price)
+        else:
+            self.entry_price = float(avg_price)
+
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        self.position = side
         self.quantity = quantity
         self.take_profit = take_profit
         self.stop_loss = stop_loss
@@ -131,6 +130,7 @@ class PositionManager:
 
         self.save_state()
 
+        # 7) Telegram message
         msg = (
             f"✅ Opened {side} (Futures)\n"
             f"Entry: {self.entry_price:.2f}\n"
@@ -139,6 +139,7 @@ class PositionManager:
         )
         send_message_sync(msg)
         print(msg)
+
 
     # ----------------------------------------------------
     # AUTO CLOSE (TP/SL + BREAK-EVEN)
@@ -193,6 +194,14 @@ class PositionManager:
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
+
+        if hasattr(self, "last_score_id") and self.last_score_id:
+            update_score_with_result(self.last_score_id, pnl_percent)
+
+        if hasattr(self, "trade_id") and self.trade_id:
+            attach_trade_id_to_last_score(self.trade_id)
+
+
 
         self.pnl = pnl_percent
         was_win = pnl_percent >= 0
