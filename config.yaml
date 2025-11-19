@@ -8,15 +8,15 @@ telegram:
   chat_id: "1131830593"
 
 trading:
-  symbol: "SOLUSDT"
-  trade_amount: 0.5 # in SOL
+  symbol: "BTCUSDT"
+  trade_amount: 0.01 # in BTC
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
   stop_loss: 1.0 # in % (for info / strategy)
   break_even_enabled: true
   break_even_trigger_pct: 0.4
-  position_file: "position_sol.json"
+  position_file: "position_btc.json"
 
 timing:
   price_interval_seconds: 5
