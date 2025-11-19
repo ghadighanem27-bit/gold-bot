@@ -9,7 +9,7 @@ telegram:
 
 trading:
   symbol: "BTCUSDT"
-  trade_amount: 0.001 # in BTC
+  trade_amount: 0.01 # in BTC
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
