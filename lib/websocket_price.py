@@ -27,7 +27,11 @@ def _ws_thread(symbol):
         ws._url = "wss://fstream.binance.com/ws"
 
     # Subscribe to MARK PRICE stream
-    ws.mark_price(symbol.lower(), callback=handle)
+    ws.mark_price(
+            symbol.lower(),
+            "1s",         # required speed argument
+            callback=handle
+     )
 
     print(f"📡 WebSocket running for {symbol}")
 
