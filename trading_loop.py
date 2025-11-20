@@ -38,7 +38,7 @@ def trading_loop():
 
     while True:
         try:
-            # ------------------- PRICE -------------------
+            # ---------------- PRICE ----------------
             price = get_futures_price(symbol)
             ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             print(f"[{ts}] Mark Price: {price}")
@@ -47,45 +47,50 @@ def trading_loop():
                 time.sleep(loop_interval)
                 continue
 
-            # Auto TP/SL checks
             pm.check_auto_close(price)
 
-            # Cooldown check
+            # ---------------- COOLDOWN ----------------
             if pm.cooldown_until:
                 now = datetime.datetime.utcnow()
                 if now < pm.cooldown_until:
-                    remaining = int((pm.cooldown_until - now).total_seconds())
-                    print(f"⏳ Cooldown active ({remaining}s left)")
+                    remain = int((pm.cooldown_until - now).total_seconds())
+                    print(f"⏳ Cooldown active ({remain}s).")
                     time.sleep(loop_interval)
                     continue
 
-            # ------------------- SCORE UPDATE -------------------
-            now_ts = time.time()
+            # -------------------------------------------------------
+            # 5-MINUTE TECHNICAL SCORE FETCH (IMPORTANT)
+            # -------------------------------------------------------
 
+            now_ts = time.time()
             if now_ts - last_score_time >= score_update_interval:
 
-                print("🧮 Updating LTF + HTF scores...")
+                print("🧮 Updating technical score on both LTF + HTF...")
+
+                # Sleep BEFORE the DF fetch to avoid rate limits
+                time.sleep(1.0)
 
                 df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
+                time.sleep(1.0)
+
                 df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
+                time.sleep(1.0)
 
-                # Use your NEW scoring model (0–100)
-                ltf_score = technical_score(df_ltf, symbol=symbol)
-                htf_score = technical_score(df_htf, symbol=symbol)
+                # Compute your new 0–100 score
+                ltf_score = technical_score(df_ltf, symbol)
+                htf_score = technical_score(df_htf, symbol)
 
-                # MTF Blend (65% fast + 35% trend)
-                blended = (0.65 * ltf_score) + (0.35 * htf_score)
-
-                last_score = blended
+                blended_score = (0.65 * ltf_score) + (0.35 * htf_score)
+                last_score = blended_score
                 last_score_time = now_ts
 
-                # Save in DB
+                # Save
                 try:
                     record_score(
                         symbol=symbol,
                         ltf_score=float(ltf_score),
                         htf_score=float(htf_score),
-                        reinforced_score=float(blended),
+                        reinforced_score=float(blended_score),
                         decision=None,
                         trade_id=None
                     )
@@ -93,16 +98,16 @@ def trading_loop():
                 except Exception as e:
                     print(f"⚠️ Failed to save score: {e}")
 
-                print(f"📊 LTF={ltf_score:.2f} | HTF={htf_score:.2f} | Final Score={blended:.2f}")
+                print(f"📊 Scores → LTF={ltf_score:.2f} | HTF={htf_score:.2f} | FINAL={blended_score:.2f}")
 
-            # If score not updated yet, skip
+            # If score not updated yet → skip trading
             if last_score is None:
                 time.sleep(loop_interval)
                 continue
 
-            # ------------------- SIGNAL ROUTING -------------------
+            # ---------------- SIGNAL LOGIC ----------------
             decision = signals(
-                df_ltf,         # send LTF dataframe
+                df_ltf,
                 price,
                 symbol,
                 pm,
@@ -111,11 +116,14 @@ def trading_loop():
                 stop_loss
             )
 
-            print(f"➡️ Signal Result: {decision}")
+            print(f"➡️ Signal = {decision}")
 
+            # -------------------------------------------------------
+            # END LOOP DELAY
+            # -------------------------------------------------------
             time.sleep(loop_interval)
 
         except Exception as e:
-            print(f"⚠️ Error in trading_loop: {e}")
+            print(f"⚠️ Error: {e}")
             send_message_sync(f"⚠️ Error in trading_loop: {e}")
             time.sleep(loop_interval)
