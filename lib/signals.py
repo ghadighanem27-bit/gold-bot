@@ -3,7 +3,7 @@
 # ==========================================
 
 from lib.indicators import technical_score
-from lib.telegram import send_message_sync
+from lib.telegram_bot import send_message_sync
 
 
 BUY_THRESHOLD = 65
