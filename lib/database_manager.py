@@ -1,55 +1,72 @@
 import psycopg2
-import os
 from lib.vars import cfg
-
-DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_conn():
     return psycopg2.connect(cfg["database"]["url"])
 
 
-def record_score(symbol, ltf_score, htf_score, reinforced_score, decision, trade_id=None):
+# ----------------------------------------------------------
+# INSERT NEW SCORE ROW
+# ----------------------------------------------------------
+def record_score(
+    symbol,
+    ltf_score,
+    htf_score,
+    reinforced_score,
+    decision,
+    regime,
+    entry_volatility,
+    entry_time,
+    trade_id=None
+):
     """
-    Saves a score row. trade_id is optional (NULL = scoring cycle with no trade).
+    Creates a new MTF score row (one per cycle).
     """
     try:
         conn = get_conn()
         cur = conn.cursor()
 
         cur.execute("""
-            INSERT INTO mtf_scores (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (symbol, ltf_score, htf_score, reinforced_score, decision, trade_id))
+            INSERT INTO mtf_scores (
+                symbol,
+                ltf_score,
+                htf_score,
+                reinforced_score,
+                decision,
+                regime,
+                entry_volatility,
+                entry_time,
+                trade_id
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            RETURNING id
+        """, (
+            symbol,
+            ltf_score,
+            htf_score,
+            reinforced_score,
+            decision,
+            regime,
+            entry_volatility,
+            entry_time,
+            trade_id
+        ))
 
+        score_id = cur.fetchone()[0]
         conn.commit()
+
         cur.close()
         conn.close()
+        return score_id
 
     except Exception as e:
-        print(f"⚠️ Failed to record score: {e}")
+        print(f"⚠️ Failed to insert score: {e}")
+        return None
 
 
-def update_score_with_result(score_id, pnl):
-    """Called when a trade closes."""
-    try:
-        conn = get_conn()
-        cur = conn.cursor()
-
-        cur.execute("""
-            UPDATE mtf_scores
-            SET trade_result = %s
-            WHERE id = %s
-        """, (pnl, score_id))
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-    except Exception as e:
-        print(f"⚠️ Failed to update score result: {e}")
-        
-    return score_id
-
+# ----------------------------------------------------------
+# ATTACH TRADE ID AFTER OPENING A POSITION
+# ----------------------------------------------------------
 def attach_trade_id_to_last_score(trade_id):
     try:
         conn = get_conn()
@@ -69,3 +86,40 @@ def attach_trade_id_to_last_score(trade_id):
 
     except Exception as e:
         print(f"⚠️ Failed to attach trade id: {e}")
+
+
+# ----------------------------------------------------------
+# UPDATE RESULT WHEN TRADE CLOSES
+# ----------------------------------------------------------
+def update_score_with_result(
+    score_id,
+    pnl,
+    exit_time,
+    exit_volatility,
+    duration_seconds
+):
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE mtf_scores
+            SET trade_result = %s,
+                exit_time = %s,
+                exit_volatility = %s,
+                duration_seconds = %s
+            WHERE id = %s
+        """, (
+            pnl,
+            exit_time,
+            exit_volatility,
+            duration_seconds,
+            score_id
+        ))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+    except Exception as e:
+        print(f"⚠️ Failed to update score result: {e}")

@@ -43,6 +43,8 @@ class PositionManager:
         self.cooldown_until = None
         self.last_trade_was_win = None
         self.last_score_id = None
+        self.pnl_history = []
+
 
         # --- Break-even config ---
         self.break_even_enabled = True
@@ -108,15 +110,12 @@ class PositionManager:
             print(f"⚠️ Failed to attach trade ID: {e}")
         
 
-        # --- store the Binance trade/order ID ---
+       # after order is confirmed FILLED
         self.last_trade_id = order_id
 
-        # attach the trade ID to the most recent score cycle
+        # attach trade id to the score row associated
         from lib.database_manager import attach_trade_id_to_last_score
-        attach_trade_id_to_last_score(order_id)
-
-        # 4) SAVE the Binance trade ID
-        self.last_trade_id = order_id
+        attach_trade_id_to_last_score(self.last_score_id, order_id)
 
         # 5) ATTACH this trade ID to the latest technical score record
         try:
@@ -203,45 +202,63 @@ class PositionManager:
             print("⚠️ No open position to close.")
             return None
 
-        # --- Compute PNL % ---
+        # -------- PNL % ----------
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
-        if hasattr(self, "last_score_id") and self.last_score_id:
-            update_score_with_result(self.last_score_id, pnl_percent)
+        exit_time = datetime.datetime.utcnow()
 
-        if hasattr(self, "trade_id") and self.trade_id:
-            attach_trade_id_to_last_score(self.trade_id)
+        # Volatility at exit (safe fallback)
+        exit_volatility = None
+        if df is not None:
+            try:
+                exit_volatility = df["c"].pct_change().std() * 100
+            except:
+                exit_volatility = None
 
+        # Duration from entry → exit
+        try:
+            entry_dt = datetime.datetime.fromisoformat(self.entry_time)
+            duration_seconds = (exit_time - entry_dt).total_seconds()
+        except:
+            duration_seconds = None
 
+        # -------- UPDATE SCORE RESULT --------
+        from lib.database_manager import update_score_with_result
 
+        if self.last_score_id:
+            update_score_with_result(
+                self.last_score_id,
+                pnl=pnl_percent,
+                exit_time=exit_time,
+                exit_volatility=exit_volatility,
+                duration_seconds=duration_seconds
+            )
+            print(f"📊 Score #{self.last_score_id} updated with result")
+
+        # -------- Update state --------
         self.pnl = pnl_percent
         was_win = pnl_percent >= 0
         self.last_trade_was_win = was_win
+        self.pnl_history.append(pnl_percent)
 
-        # --- Update score AFTER pnl is final ---
-        try:
-            if self.last_score_id is not None:
-                update_score_with_result(self.last_score_id, pnl_percent)
-                print(f"📊 Score updated with trade result: {pnl_percent:.2f}%")
-        except Exception as e:
-            print(f"⚠️ Score update failed: {e}")
 
-        # --- Cooldown after loss ---
+        # -------- COOLDOWN --------
         if not was_win:
             self.cooldown_until = datetime.datetime.utcnow() + timedelta(minutes=10)
             print(f"⏳ Cooldown triggered until {self.cooldown_until}")
         else:
             self.cooldown_until = None
 
+        # -------- Telegram --------
         send_message_sync(
             f"💰 Closed {self.position}\nPnL: {pnl_percent:.2f}% "
             f"(TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
-        print(f"💰 Closed {self.position} at {price:.2f} | PnL: {pnl_percent:.2f}%")
+        print(f"💰 Closed {self.position} at {price:.2f} | PnL={pnl_percent:.2f}%")
 
-        # --- Close Binance Futures Order ---
+        # -------- Close Binance position --------
         try:
             close_qty = format_quantity(self.quantity)
             close_order = client.futures_create_order(
@@ -255,37 +272,9 @@ class PositionManager:
         except Exception as e:
             print(f"❌ Binance Futures close error: {e}")
 
-        if self.last_score_id is not None:
-            update_score_with_result(self.last_score_id, pnl_percent)
-
         self.reset()
         return pnl_percent
 
-
-    # ----------------------------------------------------
-    def reset(self):
-        self.position = None
-        self.entry_price = 0.0
-        self.entry_time = None
-        self.quantity = 0.0
-        self.pnl = 0.0
-        self.break_even_activated = False
-        self.save_state()
-
-    # ----------------------------------------------------
-    def save_state(self):
-        state = {
-            "position": self.position,
-            "entry_price": self.entry_price,
-            "entry_time": self.entry_time,
-            "quantity": self.quantity,
-            "pnl": self.pnl,
-            "take_profit": self.take_profit,
-            "stop_loss": self.stop_loss,
-            "break_even_activated": self.break_even_activated,
-        }
-        with open(self.save_file, "w") as f:
-            json.dump(state, f)
 
     # ----------------------------------------------------
     def load_state(self):
@@ -304,3 +293,105 @@ class PositionManager:
 
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")
+
+    def check_progressive_tp(self, price):
+        """
+        Progressive TP v2:
+        - Partial take profits at defined levels
+        - Activates breakeven after first TP
+        - After last TP → trailing stop activates automatically
+        """
+
+        if not self.position:
+            return
+
+        if self.entry_price is None or self.quantity is None:
+            return
+
+        # Compute current pnl %
+        pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
+        if self.position == "SELL":
+            pnl_percent = -pnl_percent
+
+        # -------------------------
+        # STEP 1: PARTIAL TAKE PROFIT
+        # -------------------------
+        steps = [
+            (0.40, 0.25),   # at +0.40% → take 25%
+            (0.70, 0.25),   # at +0.70% → take 25%
+            (1.00, 0.25),   # at +1.0%  → take 25%
+            (1.50, 0.25),   # at +1.5% → take final 25%
+        ]
+
+        # Track completed steps
+        if not hasattr(self, "tp_steps_done"):
+            self.tp_steps_done = set()
+
+        # Perform partial TPs
+        for level, portion in steps:
+            if pnl_percent >= level and level not in self.tp_steps_done:
+
+                qty_to_close = float(self.quantity) * portion
+                qty_to_close = format_quantity(qty_to_close)
+
+                try:
+                    order = client.futures_create_order(
+                        symbol=BOT_SYMBOL,
+                        side="SELL" if self.position == "BUY" else "BUY",
+                        type="MARKET",
+                        quantity=qty_to_close,
+                        reduceOnly=True
+                    )
+                    print(f"📌 Partial TP at {level}% | Closed {portion*100:.0f}% | {order}")
+                    send_message_sync(
+                        f"🎯 Partial TP hit at {level}%\nClosed {portion*100:.0f}% of position."
+                    )
+                except Exception as e:
+                    print(f"❌ Error in progressive TP: {e}")
+                    continue
+
+                # Mark executed
+                self.tp_steps_done.add(level)
+
+                # Reduce remaining qty
+                self.quantity = float(self.quantity) - float(qty_to_close)
+
+                # Activate breakeven after first TP
+                if not self.break_even_activated:
+                    self.break_even_activated = True
+                    self.stop_loss = 0.0
+                    print("🟩 Breakeven activated.")
+                    send_message_sync("🟩 Stop-loss moved to breakeven.")
+
+                # If all partial TPs done → start trailing stop
+                if len(self.tp_steps_done) == len(steps):
+                    self.trailing_active = True
+                    self.trailing_peak_pnl = pnl_percent  # record peak
+                    print("📈 Trailing stop ACTIVATED.")
+                    send_message_sync("📈 Trailing stop ACTIVATED after final TP.")
+
+                return  # ensure only one TP fires per tick
+
+        # -------------------------
+        # STEP 2: TRAILING STOP LOGIC
+        # -------------------------
+        if hasattr(self, "trailing_active") and self.trailing_active:
+
+            # Update highest PNL reached
+            if pnl_percent > getattr(self, "trailing_peak_pnl", 0):
+                self.trailing_peak_pnl = pnl_percent
+
+            # Trailing stop distance (%) behind the peak
+            trailing_distance = 0.30  # You can adjust — 0.30% behind peak
+
+            # Trigger exit
+            if pnl_percent <= self.trailing_peak_pnl - trailing_distance:
+
+                print(f"🏁 Trailing stop triggered. Peak={self.trailing_peak_pnl:.2f}% | Current={pnl_percent:.2f}%")
+                send_message_sync(
+                    f"🏁 Trailing stop triggered.\nPeak={self.trailing_peak_pnl:.2f}% → Exit at {pnl_percent:.2f}%"
+                )
+
+                # Close full remaining position
+                self.close_position(price)
+                return
