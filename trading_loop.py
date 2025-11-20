@@ -10,7 +10,7 @@ from lib.vars import (
 )
 
 from lib.market_data import get_futures_price, get_data
-from lib.indicators import technical_score, market_regime
+from lib.indicators import technical_score
 from lib.database_manager import record_score
 from lib.telegram_bot import send_message_sync
 from lib.position_manager import PositionManager
@@ -91,7 +91,7 @@ def trading_loop():
                 last_score_time = now_ts
 
                 # Compute regime + volatility
-                regime, _ = market_regime(df_ltf)
+                regime, _ = technical_score(df_ltf, symbol)
                 entry_volatility = df_ltf["c"].pct_change().std() * 100
                 entry_time = datetime.datetime.utcnow()
 
