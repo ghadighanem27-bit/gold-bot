@@ -27,7 +27,7 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     # GET TECHNICAL SCORE
     # -----------------------------------------
     score = technical_score(df, symbol=symbol)
-    weighted_score = score * 100     # convert to 0–100 scale
+    weighted_score = score    # convert to 0–100 scale
 
     BUY_THRESHOLD = 65
     SELL_THRESHOLD = 35
