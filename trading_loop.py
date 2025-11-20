@@ -21,11 +21,10 @@ from lib.risk import (
     adaptive_position_size
 )
 
-
 LTF_TIMEFRAME = "5m"
 HTF_TIMEFRAME = "15m"
 
-score_update_interval = 300  # 5 min
+score_update_interval = 300  # 5 minutes
 last_score_time = 0
 last_score = None
 last_ltf_df = None
@@ -54,7 +53,6 @@ def trading_loop():
             pm.check_auto_close(price)
             pm.check_progressive_tp(price)
 
-
             # ------------------- COOLDOWN -------------------
             if pm.cooldown_until:
                 now = datetime.datetime.utcnow()
@@ -72,17 +70,14 @@ def trading_loop():
 
                 print("🧮 Updating technical score on LTF + HTF...")
 
-                # Fetch LTF dataframe
                 df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
                 time.sleep(0.8)
 
-                # Fetch HTF dataframe
                 df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
                 time.sleep(0.8)
 
-                last_ltf_df = df_ltf  # Store for volatility calculations
+                last_ltf_df = df_ltf
 
-                # Compute final score (0–100)
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
 
@@ -90,12 +85,11 @@ def trading_loop():
                 last_score = blended_score
                 last_score_time = now_ts
 
-                # Compute regime + volatility
-                regime, _ = technical_score(df_ltf, symbol)
+                # Volatility only (technical_score returns single float)
                 entry_volatility = df_ltf["c"].pct_change().std() * 100
                 entry_time = datetime.datetime.utcnow()
+                regime = None
 
-                # ------------------- STORE SCORE -------------------
                 try:
                     pm.last_score_id = record_score(
                         symbol=symbol,
@@ -114,7 +108,6 @@ def trading_loop():
 
                 print(f"📊 LTF={ltf_score:.2f} | HTF={htf_score:.2f} | FINAL={blended_score:.2f}")
 
-            # If score not updated yet, skip entries
             if last_score is None:
                 time.sleep(loop_interval)
                 continue
@@ -129,16 +122,16 @@ def trading_loop():
                 take_profit,
                 stop_loss
             )
+
             print(f"➡️ Signal = {decision}")
 
             # ------------------- ENTRY -------------------
             if pm.position is None:
-                # --- Compute risk parameters ---
+
                 winrate_last20 = compute_winrate_last20(pm.pnl_history)
                 drawdown = compute_drawdown(pm.pnl_history)
 
-                # LONG or SHORT side
-                if decision== "BUY":
+                if decision == "BUY":
                     pos_type = "LONG"
                 elif decision == "SELL":
                     pos_type = "SHORT"
@@ -146,7 +139,6 @@ def trading_loop():
                     pos_type = None
 
                 if pos_type:
-                    # Adaptive amount (USDT fraction OR quantity depending on your system)
                     size = adaptive_position_size(
                         base_amount=trade_amount,
                         reinforced_score=last_score,
@@ -157,8 +149,13 @@ def trading_loop():
 
                     print(f"📐 Adaptive Size: {size}")
 
-                    pm.open_position(pos_type, price, size, take_profit, stop_loss)
-
+                    pm.open_position(
+                        side=pos_type,
+                        price=price,
+                        quantity=size,
+                        take_profit=take_profit,
+                        stop_loss=stop_loss
+                    )
 
             time.sleep(loop_interval)
 
