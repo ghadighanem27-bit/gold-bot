@@ -115,7 +115,7 @@ class PositionManager:
 
         # attach trade id to the score row associated
         from lib.database_manager import attach_trade_id_to_last_score
-        attach_trade_id_to_last_score(self.last_score_id, order_id)
+        attach_trade_id_to_last_score(self.last_score_id)
 
         # 5) ATTACH this trade ID to the latest technical score record
         try:
