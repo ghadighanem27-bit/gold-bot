@@ -3,7 +3,6 @@
 # ==========================================
 
 from lib.indicators import technical_score
-from lib.database_manager import log_signal
 from lib.telegram import send_message_sync
 
 
@@ -32,7 +31,6 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     # ---- EXIT LONG ----
     if pm.position == "BUY" and weighted_score <= SELL_THRESHOLD:
         print("🔻 EXIT LONG SIGNAL DETECTED")
-        log_signal("EXIT LONG", weighted_score, price)
         send_message_sync(f"🔻 EXIT LONG\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
         pm.close_position(price, symbol)
         return "EXIT_LONG"
@@ -40,7 +38,6 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
     # ---- EXIT SHORT ----
     if pm.position == "SELL" and weighted_score >= BUY_THRESHOLD:
         print("🔺 EXIT SHORT SIGNAL DETECTED")
-        log_signal("EXIT SHORT", weighted_score, price)
         send_message_sync(f"🔺 EXIT SHORT\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
         pm.close_position(price, symbol)
         return "EXIT_SHORT"
@@ -53,7 +50,6 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
         # ---- LONG ENTRY ----
         if weighted_score >= BUY_THRESHOLD:
             print(f"🟢 LONG ENTRY | Score {weighted_score:.2f} ≥ {BUY_THRESHOLD}")
-            log_signal("LONG ENTRY", weighted_score, price)
 
             send_message_sync(
                 f"🟢 LONG ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}"
@@ -71,7 +67,6 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
         # ---- SHORT ENTRY ----
         if weighted_score <= SELL_THRESHOLD:
             print(f"🔴 SHORT ENTRY | Score {weighted_score:.2f} ≤ {SELL_THRESHOLD}")
-            log_signal("SHORT ENTRY", weighted_score, price)
 
             send_message_sync(
                 f"🔴 SHORT ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}"
