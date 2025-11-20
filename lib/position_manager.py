@@ -392,3 +392,13 @@ class PositionManager:
                 # Close full remaining position
                 self.close_position(price)
                 return
+            
+    def reset(self):
+        self.position = None
+        self.entry_price = None
+        self.entry_time = None
+        self.quantity = 0
+        self.pnl = 0.0
+        self.break_even_activated = False
+        self.take_profit = None
+        self.stop_loss = None
