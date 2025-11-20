@@ -104,18 +104,15 @@ class PositionManager:
             print(f"⚠️ Error checking order fill status: {e}")
             return
         
-        try:
-            attach_trade_id_to_last_score(self.last_trade_id)
-        except Exception as e:
-            print(f"⚠️ Failed to attach trade ID: {e}")
-        
 
-       # after order is confirmed FILLED
-        self.last_trade_id = order_id
+       
 
         # attach trade id to the score row associated
         from lib.database_manager import attach_trade_id_to_last_score
         attach_trade_id_to_last_score(self.last_score_id)
+
+        # after order is confirmed FILLED
+        self.last_trade_id = order_id
 
         # 5) ATTACH this trade ID to the latest technical score record
         try:
@@ -140,7 +137,7 @@ class PositionManager:
         self.pnl = 0.0
         self.break_even_activated = False
 
-        self.save_state()
+        
 
         # 7) Telegram message
         msg = (
