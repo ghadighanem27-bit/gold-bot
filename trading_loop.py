@@ -1,6 +1,5 @@
 import time
 import datetime
-from binance.exceptions import BinanceAPIException  # kept in case you use later
 
 from lib.vars import (
     symbol,
@@ -9,134 +8,122 @@ from lib.vars import (
     stop_loss,
     loop_interval,
 )
-from lib.indicators import technical_score
+
 from lib.market_data import get_futures_price, get_data
 from lib.database_manager import record_score
 from lib.telegram_bot import send_message_sync
-from lib.signals import signals
 from lib.position_manager import PositionManager
+from lib.indicators import technical_score
+from lib.signals import signals
 
-LTF_TIMEFRAME = "5m"    # your trading timeframe
-HTF_TIMEFRAME = "15m"   # higher timeframe (4x higher recommended)
+# Timeframes
+LTF_TIMEFRAME = "5m"
+HTF_TIMEFRAME = "15m"
+
+# Only update score every 5 minutes
+score_update_interval = 300
 
 last_score_time = 0
-cached_signal = None
-score_update_interval = 300   # 5 minutes
+last_score = None
 
-# Use your advanced PositionManager
 pm = PositionManager()
 
-def confirm_signal_performance(ltf_score, htf_score):
-    """
-    Highest winrate MTF confirmation method.
-    
-    Combines lower timeframe (fast signals)
-    with higher timeframe (trend stability).
-    """
-
-    # Reinforced Score: 65% LTF + 35% HTF
-    reinforced = (0.65 * ltf_score) + (0.35 * htf_score)
-
-    print(f"🔁 Reinforced Score = {reinforced:.3f}")
-
-    # Optimized thresholds
-    if reinforced >= 0.64:
-        return "BUY"
-    elif reinforced <= 0.36:
-        return "SELL"
-    else:
-        return None  # No trade
 
 def trading_loop():
-    send_message_sync(f"🚀 Trading loop started for <b>{symbol}</b> (Futures)")
+    send_message_sync(f"🚀 Trading loop started for <b>{symbol}</b>")
     print(f"🚀 Trading loop started for {symbol}")
 
     global last_score_time
-    global cached_signal
+    global last_score
 
     while True:
         try:
-            # ------------------ PRICE ------------------
-            mark_price = get_futures_price(symbol)
+            # ---------------- PRICE ----------------
+            price = get_futures_price(symbol)
             ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"[{ts}] Mark Price: {mark_price}")
+            print(f"[{ts}] Mark Price: {price}")
 
-            if mark_price is None:
+            if price is None:
                 time.sleep(loop_interval)
                 continue
 
-            # ------------------ AUTO TP/SL / BE ------------------
-            pm.check_auto_close(mark_price)
+            pm.check_auto_close(price)
 
-            # ------------------ COOLDOWN CHECK ------------------
-            if pm.cooldown_until is not None:
+            # ---------------- COOLDOWN ----------------
+            if pm.cooldown_until:
                 now = datetime.datetime.utcnow()
                 if now < pm.cooldown_until:
-                    remaining = int((pm.cooldown_until - now).total_seconds())
-                    print(f"⏳ Cooldown active ({remaining}s left). Skipping new entries.")
+                    remain = int((pm.cooldown_until - now).total_seconds())
+                    print(f"⏳ Cooldown active ({remain}s).")
                     time.sleep(loop_interval)
                     continue
 
-            # ------------------ MTF SCORE UPDATE (EVERY 5 MIN) ------------------
-            current_ts = time.time()
+            # -------------------------------------------------------
+            # 5-MINUTE TECHNICAL SCORE FETCH (IMPORTANT)
+            # -------------------------------------------------------
 
-            if current_ts - last_score_time >= score_update_interval:
+            now_ts = time.time()
+            if now_ts - last_score_time >= score_update_interval:
 
-                print("🧮 Updating LTF + HTF scores...")
+                print("🧮 Updating technical score on both LTF + HTF...")
+
+                # Sleep BEFORE the DF fetch to avoid rate limits
+                time.sleep(1.0)
 
                 df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
-                df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
+                time.sleep(1.0)
 
+                df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
+                time.sleep(1.0)
+
+                # Compute your new 0–100 score
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
 
-                # Compute reinforced score
-                reinforced = (0.65 * ltf_score) + (0.35 * htf_score)
+                blended_score = (0.65 * ltf_score) + (0.35 * htf_score)
+                last_score = blended_score
+                last_score_time = now_ts
 
-                # Get the final decision (BUY / SELL / NONE)
-                cached_signal = confirm_signal_performance(ltf_score, htf_score)
-                score_id = None
-                # --- SAVE SCORES TO DB ---
+                # Save
                 try:
-                    record_score(symbol=symbol,
-                                ltf_score=float(ltf_score),
-                                htf_score=float(htf_score),
-                                reinforced_score=float(reinforced),
-                                decision=cached_signal,
-                                trade_id=None   # no trade yet
-                                )
-                    pm.last_score_id = score_id
-                    print("✅ Scores saved to DB.")
+                    record_score(
+                        symbol=symbol,
+                        ltf_score=float(ltf_score),
+                        htf_score=float(htf_score),
+                        reinforced_score=float(blended_score),
+                        decision=None,
+                        trade_id=None
+                    )
+                    print("✅ Score saved to DB.")
                 except Exception as e:
-                    print(f"⚠️ Failed to record scores: {e}")
+                    print(f"⚠️ Failed to save score: {e}")
 
-                last_score_time = current_ts
+                print(f"📊 Scores → LTF={ltf_score:.2f} | HTF={htf_score:.2f} | FINAL={blended_score:.2f}")
 
-                print(f"📊 LTF={ltf_score:.3f}, HTF={htf_score:.3f}, R={reinforced:.3f} → Final={cached_signal}")
+            # If score not updated yet → skip trading
+            if last_score is None:
+                time.sleep(loop_interval)
+                continue
 
-            # Always use the last known signal
-            signal = cached_signal
-            print(f"➡️ Reinforced Signal: {signal}")
+            # ---------------- SIGNAL LOGIC ----------------
+            decision = signals(
+                df_ltf,
+                price,
+                symbol,
+                pm,
+                trade_amount,
+                take_profit,
+                stop_loss
+            )
 
-            # ------------------ ENTRY / EXIT ------------------
-            if pm.position is None:
-                if signal == "BUY":
-                    pm.open_position("BUY", mark_price, trade_amount, take_profit, stop_loss)
+            print(f"➡️ Signal = {decision}")
 
-                elif signal == "SELL":
-                    pm.open_position("SELL", mark_price, trade_amount, take_profit, stop_loss)
-
-            else:
-                if signal == "CLOSE":
-                    pm.close_position(price=mark_price)
-
+            # -------------------------------------------------------
+            # END LOOP DELAY
+            # -------------------------------------------------------
             time.sleep(loop_interval)
 
-        except KeyboardInterrupt:
-            print("🛑 Trading loop stopped by user.")
-            break
-
         except Exception as e:
-            print(f"⚠️ Error in trading_loop: {e}")
+            print(f"⚠️ Error: {e}")
             send_message_sync(f"⚠️ Error in trading_loop: {e}")
             time.sleep(loop_interval)
