@@ -137,18 +137,6 @@ class PositionManager:
         self.pnl = 0.0
         self.break_even_activated = False
 
-        
-
-        # 7) Telegram message
-        msg = (
-            f"✅ Opened {side} (Futures)\n"
-            f"Entry: {self.entry_price:.2f}\n"
-            f"Qty: {quantity}\n"
-            f"TP: {take_profit}% | SL: {stop_loss}%"
-        )
-        send_message_sync(msg)
-        print(msg)
-
 
     # ----------------------------------------------------
     # AUTO CLOSE (TP/SL + BREAK-EVEN)

@@ -5,9 +5,16 @@
 from lib.indicators import technical_score
 from lib.telegram_bot import send_message_sync
 
+STRONG_BUY = 25
+SOFT_BUY   = 40
+NEUTRAL_LOWER = 40
+NEUTRAL_UPPER = 60
+SOFT_SELL  = 60
+STRONG_SELL = 75
 
-BUY_THRESHOLD = 70
-SELL_THRESHOLD = 25
+
+BUY_THRESHOLD = 25
+SELL_THRESHOLD = 70
 
 
 def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):

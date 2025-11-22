@@ -15,11 +15,6 @@ from lib.database_manager import record_score
 from lib.telegram_bot import send_message_sync
 from lib.position_manager import PositionManager
 from lib.signals import signals
-from lib.risk import (
-    compute_winrate_last20,
-    compute_drawdown,
-    adaptive_position_size
-)
 
 LTF_TIMEFRAME = "5m"
 HTF_TIMEFRAME = "15m"
@@ -58,7 +53,7 @@ def trading_loop():
                 now = datetime.datetime.utcnow()
                 if now < pm.cooldown_until:
                     remain = int((pm.cooldown_until - now).total_seconds())
-                    print(f"⏳ Cooldown active ({remain}s). Skipping entries.")
+                    print(f"⏳ Cooldown active ({remain}s). Skipping.")
                     time.sleep(loop_interval)
                     continue
 
@@ -68,13 +63,13 @@ def trading_loop():
             now_ts = time.time()
             if now_ts - last_score_time >= score_update_interval:
 
-                print("🧮 Updating technical score on LTF + HTF...")
+                print("🧮 Updating technical score...")
 
                 df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
-                time.sleep(0.8)
+                time.sleep(0.5)
 
                 df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
-                time.sleep(0.8)
+                time.sleep(0.5)
 
                 last_ltf_df = df_ltf
 
@@ -85,10 +80,8 @@ def trading_loop():
                 last_score = blended_score
                 last_score_time = now_ts
 
-                # Volatility only (technical_score returns single float)
                 entry_volatility = df_ltf["c"].pct_change().std() * 100
                 entry_time = datetime.datetime.utcnow()
-                regime = None
 
                 try:
                     pm.last_score_id = record_score(
@@ -97,7 +90,7 @@ def trading_loop():
                         htf_score=float(htf_score),
                         reinforced_score=float(blended_score),
                         decision=None,
-                        regime=regime,
+                        regime=None,
                         entry_volatility=float(entry_volatility),
                         entry_time=entry_time,
                         trade_id=None
@@ -112,7 +105,9 @@ def trading_loop():
                 time.sleep(loop_interval)
                 continue
 
-            # ------------------- SIGNAL ENGINE -------------------
+            # ---------------------------------------------------
+            # ✅ SIGNAL ENGINE (SOLE DECISION MAKER)
+            # ---------------------------------------------------
             decision = signals(
                 last_ltf_df,
                 price,
@@ -125,41 +120,9 @@ def trading_loop():
 
             print(f"➡️ Signal = {decision}")
 
-            # ------------------- ENTRY -------------------
-            if pm.position is None:
-
-                winrate_last20 = compute_winrate_last20(pm.pnl_history)
-                drawdown = compute_drawdown(pm.pnl_history)
-
-                if decision == "BUY":
-                    pos_type = "LONG"
-                elif decision == "SELL":
-                    pos_type = "SHORT"
-                else:
-                    pos_type = None
-
-                if pos_type:
-                    size = adaptive_position_size(
-                        base_amount=trade_amount,
-                        reinforced_score=last_score,
-                        position_type=pos_type,
-                        winrate_last20=winrate_last20,
-                        drawdown=drawdown
-                    )
-
-                    print(f"📐 Adaptive Size: {size}")
-
-                    pm.open_position(
-                        side=pos_type,
-                        price=price,
-                        quantity=size,
-                        take_profit=take_profit,
-                        stop_loss=stop_loss
-                    )
-
             time.sleep(loop_interval)
 
         except Exception as e:
             print(f"⚠️ Error in loop: {e}")
-            send_message_sync(f"⚠️ Error in trading_loop: {e}")
+            send_message_sync(f"⚠️ Error in trading loop: {e}")
             time.sleep(loop_interval)
