@@ -1,94 +1,66 @@
 # ==========================================
-# signals.py — CLEAN VERSION (final)
+# signals.py — CLEAN + FIXED VERSION
 # ==========================================
 
 from lib.indicators import technical_score
 from lib.telegram_bot import send_message_sync
 
-STRONG_BUY = 25
-SOFT_BUY   = 40
-NEUTRAL_LOWER = 40
-NEUTRAL_UPPER = 60
-SOFT_SELL  = 60
-STRONG_SELL = 75
 
-
-BUY_THRESHOLD = 25
-SELL_THRESHOLD = 70
+STRONG_BUY = 75
+SOFT_BUY   = 60
+SOFT_SELL  = 40
+STRONG_SELL = 25
 
 
 def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):
-    """
-    Main signal engine for entries/exits.
-    This is the ONLY place where BUY/SELL decision is made.
-    """
 
-    # ---------------------------------------------------------
-    # 1. Compute score (already 0–100 scale)
-    # ---------------------------------------------------------
     score = technical_score(df, symbol=symbol)
-    weighted_score = score
+    print(f"🔵 Score={score:.2f} | Price={price:.2f}")
 
-    print(f"🔵 Score={weighted_score:.2f} | Price={price:.2f}")
+    # ============================
+    # EXIT LOGIC
+    # ============================
 
-    # ---------------------------------------------------------
-    # 2. EXIT LOGIC (always runs BEFORE entries)
-    # ---------------------------------------------------------
-
-    # ---- EXIT LONG ----
-    if pm.position == "BUY" and weighted_score <= SELL_THRESHOLD:
-        print("🔻 EXIT LONG SIGNAL DETECTED")
-        send_message_sync(f"🔻 EXIT LONG\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
+    if pm.position == "BUY" and score <= SOFT_SELL:
+        send_message_sync(f"🔻 EXIT LONG\nPrice: {price:.2f}\nScore: {score:.2f}")
         pm.close_position(price, symbol)
         return "EXIT_LONG"
 
-    # ---- EXIT SHORT ----
-    if pm.position == "SELL" and weighted_score >= BUY_THRESHOLD:
-        print("🔺 EXIT SHORT SIGNAL DETECTED")
-        send_message_sync(f"🔺 EXIT SHORT\nPrice: {price:.2f}\nScore: {weighted_score:.2f}")
+    if pm.position == "SELL" and score >= SOFT_BUY:
+        send_message_sync(f"🔺 EXIT SHORT\nPrice: {price:.2f}\nScore: {score:.2f}")
         pm.close_position(price, symbol)
         return "EXIT_SHORT"
 
-    # ---------------------------------------------------------
-    # 3. ENTRY LOGIC (only if NO position)
-    # ---------------------------------------------------------
+
+    # ============================
+    # ENTRY LOGIC
+    # ============================
+
     if pm.position is None:
 
-        # ---- LONG ENTRY ----
-        if weighted_score >= BUY_THRESHOLD:
-            print(f"🟢 LONG ENTRY | Score {weighted_score:.2f} ≥ {BUY_THRESHOLD}")
+        # -------- STRONG BUY --------
+        if score >= STRONG_BUY:
+            pm.open_position("BUY", price, trade_amount, take_profit=2.0, stop_loss=1.0)
+            send_message_sync(f"🔥 STRONG BUY\nScore: {score:.2f}")
+            return "STRONG_BUY"
 
-            send_message_sync(
-                f"🟢 LONG ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}"
-            )
+        # -------- SOFT BUY --------
+        if score >= SOFT_BUY:
+            pm.open_position("BUY", price, trade_amount, take_profit=1.2, stop_loss=0.8)
+            send_message_sync(f"🟢 SOFT BUY\nScore: {score:.2f}")
+            return "SOFT_BUY"
 
-            pm.open_position(
-                side="BUY",
-                price=price,
-                quantity=trade_amount,
-                take_profit=take_profit,
-                stop_loss=stop_loss,
-            )
-            return "LONG"
 
-        # ---- SHORT ENTRY ----
-        if weighted_score <= SELL_THRESHOLD:
-            print(f"🔴 SHORT ENTRY | Score {weighted_score:.2f} ≤ {SELL_THRESHOLD}")
+        # -------- STRONG SELL --------
+        if score <= STRONG_SELL:
+            pm.open_position("SELL", price, trade_amount, take_profit=2.0, stop_loss=1.0)
+            send_message_sync(f"🔥 STRONG SELL\nScore: {score:.2f}")
+            return "STRONG_SELL"
 
-            send_message_sync(
-                f"🔴 SHORT ENTRY\nPrice: {price:.2f}\nScore: {weighted_score:.2f}"
-            )
+        # -------- SOFT SELL --------
+        if score <= SOFT_SELL:
+            pm.open_position("SELL", price, trade_amount, take_profit=1.2, stop_loss=0.8)
+            send_message_sync(f"🔴 SOFT SELL\nScore: {score:.2f}")
+            return "SOFT_SELL"
 
-            pm.open_position(
-                side="SELL",
-                price=price,
-                quantity=trade_amount,
-                take_profit=take_profit,
-                stop_loss=stop_loss,
-            )
-            return "SHORT"
-
-    # ---------------------------------------------------------
-    # 4. NO TRADE
-    # ---------------------------------------------------------
     return "NO_SIGNAL"
