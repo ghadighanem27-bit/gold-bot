@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
-from lib.vars import cfg
+from lib.vars import cfg, symbol
 from lib.database_manager import update_score_with_result, record_score,attach_trade_id_to_last_score
 from lib.indicators import technical_score  # kept in case you use it later
 
@@ -163,6 +163,7 @@ class PositionManager:
 
                 msg = (
                     f"🟦 BREAK-EVEN ACTIVATED\n"
+                    f"{symbol}\n"
                     f"Trade protected at entry.\n"
                     f"PnL: {pnl_percent:.2f}%"
                 )
@@ -171,13 +172,15 @@ class PositionManager:
 
         # --- Take Profit ---
         if pnl_percent >= self.take_profit:
-            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%")
+            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}\n"
+                              f"{symbol}")
             self.close_position(current_price, symbol)
             return
 
         # --- Stop Loss (including BE at 0%) ---
         if pnl_percent <= -self.stop_loss:
-            send_message_sync(f"⛔ Stop Loss hit! {pnl_percent:.2f}%")
+            send_message_sync(f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n"
+                              f"{symbol}")
             self.close_position(current_price, symbol)
             return
 
@@ -241,6 +244,7 @@ class PositionManager:
         # -------- Telegram --------
         send_message_sync(
             f"💰 Closed {self.position}\nPnL: {pnl_percent:.2f}% "
+            f"{symbol}\n"
             f"(TP={self.take_profit}%, SL={self.stop_loss}%)"
         )
         print(f"💰 Closed {self.position} at {price:.2f} | PnL={pnl_percent:.2f}%")
@@ -345,10 +349,11 @@ class PositionManager:
                         reduceOnly=True
                     )
 
-                    print(f"🎯 Partial TP hit @ {level}% | Closed {portion*100:.0f}%")
+                    print(f"🎯 Partial TP hit @ {level}%\nClosed {portion*100:.0f}%")
                     send_message_sync(
                         f"🎯 Partial TP hit at {level}%\nClosed {portion*100:.0f}% of position."
-                    )
+                        f"{symbol}"
+                 )
 
                 except Exception as e:
                     print(f"❌ Progressive TP error: {e}")
@@ -361,7 +366,7 @@ class PositionManager:
                 if not self.break_even_activated:
                     self.break_even_activated = True
                     self.stop_loss = 0.0
-                    print("🟩 Breakeven activated.")
+                    print("🟩 Breakeven activated.\n {symbol}")
                     send_message_sync("🟩 Stop-loss moved to breakeven.")
 
                 # Activate trailing after last TP
