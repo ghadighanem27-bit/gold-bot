@@ -46,7 +46,8 @@ def trading_loop():
 
             # AUTO TP/SL
             pm.check_auto_close(price)
-            pm.check_progressive_tp(price)
+            pm.check_progressive_tp(price, current_score=last_score)
+
 
             # ------------------- COOLDOWN -------------------
             if pm.cooldown_until:

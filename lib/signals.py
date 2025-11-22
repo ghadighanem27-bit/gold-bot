@@ -41,13 +41,13 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
         # -------- STRONG BUY --------
         if score >= STRONG_BUY:
             pm.open_position("BUY", price, trade_amount, take_profit=2.0, stop_loss=1.0)
-            send_message_sync(f"🔥 STRONG BUY\nScore: {score:.2f}")
+            send_message_sync(f"🔥 STRONG BUY\nScore: {score:.2f}\n{symbol}\n{price}")
             return "STRONG_BUY"
 
         # -------- SOFT BUY --------
         if score >= SOFT_BUY:
             pm.open_position("BUY", price, trade_amount, take_profit=1.2, stop_loss=0.8)
-            send_message_sync(f"🟢 SOFT BUY\nScore: {score:.2f}")
+            send_message_sync(f"🟢 SOFT BUY\nScore: {score:.2f}\n{symbol}\n{price}")
             return "SOFT_BUY"
 
 
@@ -60,7 +60,7 @@ def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_los
         # -------- SOFT SELL --------
         if score <= SOFT_SELL:
             pm.open_position("SELL", price, trade_amount, take_profit=1.2, stop_loss=0.8)
-            send_message_sync(f"🔴 SOFT SELL\nScore: {score:.2f}")
+            send_message_sync(f"🔴 SOFT SELL\nScore: {score:.2f}\n{symbol}\n{price}")
             return "SOFT_SELL"
 
     return "NO_SIGNAL"

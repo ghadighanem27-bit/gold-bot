@@ -138,6 +138,8 @@ class PositionManager:
         self.break_even_activated = False
 
 
+
+
     # ----------------------------------------------------
     # AUTO CLOSE (TP/SL + BREAK-EVEN)
     # ----------------------------------------------------
@@ -279,12 +281,13 @@ class PositionManager:
             except Exception as e:
                 print(f"⚠️ Could not load position file: {e}")
 
-    def check_progressive_tp(self, price):
+    def check_progressive_tp(self, price, current_score=None):
         """
-        Progressive TP v2:
+        Progressive TP v3 (Score-aware):
         - Partial take profits at defined levels
-        - Activates breakeven after first TP
-        - After last TP → trailing stop activates automatically
+        - Breakeven after first TP
+        - Trailing stop after final TP
+        - Early exit if score momentum weakens
         """
 
         if not self.position:
@@ -293,27 +296,41 @@ class PositionManager:
         if self.entry_price is None or self.quantity is None:
             return
 
-        # Compute current pnl %
+        # Calculate PNL %
         pnl_percent = ((price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
-        # -------------------------
-        # STEP 1: PARTIAL TAKE PROFIT
-        # -------------------------
+        # ============================================================
+        # SCORE-AWARE EARLY EXIT (momentum weakening protection)
+        # ============================================================
+        if current_score is not None:
+            from lib.risk import should_secure_profit
+
+            if should_secure_profit(self.position, pnl_percent, current_score):
+                print("📉 Score weakening → securing profit early.")
+                send_message_sync(
+                    f"📉 Momentum weakening\nPNL: {pnl_percent:.2f}%\nScore: {current_score:.2f}\nPosition closed safely."
+                )
+                self.close_position(price)
+                return
+
+        # ============================================================
+        # STEP 1 — PARTIAL TAKE PROFITS
+        # ============================================================
+
         steps = [
-            (0.40, 0.25),   # at +0.40% → take 25%
-            (0.70, 0.25),   # at +0.70% → take 25%
-            (1.00, 0.25),   # at +1.0%  → take 25%
-            (1.50, 0.25),   # at +1.5% → take final 25%
+            (0.40, 0.25),
+            (0.70, 0.25),
+            (1.00, 0.25),
+            (1.50, 0.25),
         ]
 
-        # Track completed steps
         if not hasattr(self, "tp_steps_done"):
             self.tp_steps_done = set()
 
-        # Perform partial TPs
         for level, portion in steps:
+
             if pnl_percent >= level and level not in self.tp_steps_done:
 
                 qty_to_close = float(self.quantity) * portion
@@ -327,18 +344,17 @@ class PositionManager:
                         quantity=qty_to_close,
                         reduceOnly=True
                     )
-                    print(f"📌 Partial TP at {level}% | Closed {portion*100:.0f}% | {order}")
+
+                    print(f"🎯 Partial TP hit @ {level}% | Closed {portion*100:.0f}%")
                     send_message_sync(
                         f"🎯 Partial TP hit at {level}%\nClosed {portion*100:.0f}% of position."
                     )
+
                 except Exception as e:
-                    print(f"❌ Error in progressive TP: {e}")
+                    print(f"❌ Progressive TP error: {e}")
                     continue
 
-                # Mark executed
                 self.tp_steps_done.add(level)
-
-                # Reduce remaining qty
                 self.quantity = float(self.quantity) - float(qty_to_close)
 
                 # Activate breakeven after first TP
@@ -348,38 +364,35 @@ class PositionManager:
                     print("🟩 Breakeven activated.")
                     send_message_sync("🟩 Stop-loss moved to breakeven.")
 
-                # If all partial TPs done → start trailing stop
+                # Activate trailing after last TP
                 if len(self.tp_steps_done) == len(steps):
                     self.trailing_active = True
-                    self.trailing_peak_pnl = pnl_percent  # record peak
+                    self.trailing_peak_pnl = pnl_percent
                     print("📈 Trailing stop ACTIVATED.")
                     send_message_sync("📈 Trailing stop ACTIVATED after final TP.")
 
-                return  # ensure only one TP fires per tick
+                return  # Only one TP per tick
 
-        # -------------------------
-        # STEP 2: TRAILING STOP LOGIC
-        # -------------------------
+        # ============================================================
+        # STEP 2 — TRAILING STOP
+        # ============================================================
+
         if hasattr(self, "trailing_active") and self.trailing_active:
 
-            # Update highest PNL reached
             if pnl_percent > getattr(self, "trailing_peak_pnl", 0):
                 self.trailing_peak_pnl = pnl_percent
 
-            # Trailing stop distance (%) behind the peak
-            trailing_distance = 0.30  # You can adjust — 0.30% behind peak
+            trailing_distance = 0.30  # 0.30% behind peak
 
-            # Trigger exit
             if pnl_percent <= self.trailing_peak_pnl - trailing_distance:
 
-                print(f"🏁 Trailing stop triggered. Peak={self.trailing_peak_pnl:.2f}% | Current={pnl_percent:.2f}%")
+                print(f"🏁 Trailing stop triggered at {pnl_percent:.2f}%")
                 send_message_sync(
-                    f"🏁 Trailing stop triggered.\nPeak={self.trailing_peak_pnl:.2f}% → Exit at {pnl_percent:.2f}%"
+                    f"🏁 Trailing stop triggered\nPeak={self.trailing_peak_pnl:.2f}%\nExit={pnl_percent:.2f}%"
                 )
 
-                # Close full remaining position
                 self.close_position(price)
-                return
+
             
     def reset(self):
         self.position = None
