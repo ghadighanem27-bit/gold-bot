@@ -45,6 +45,9 @@ class PositionManager:
         self.last_score_id = None
         self.pnl_history = []
 
+        self.break_even_triggered = False
+        self.exit_confirmation = 0
+
 
         # --- Break-even config ---
         self.break_even_enabled = True
@@ -138,9 +141,14 @@ class PositionManager:
         self.stop_loss_pct = stop_loss
         self.trade_id = trade_id            # Store the internal trade_id for DB updates
         self.tp_steps_done = []             # Reset take profit steps
-        self.trailing_active = False        # Reset trailing stop
-        self.save_state()
+        self.trailing_active = False 
         
+        # RESET NEW VARIABLES
+        self.break_even_triggered = False
+        self.exit_confirmation = 0       # Reset trailing stop
+
+        self.save_state()
+            
         print(f"✅ Position State Updated: {side} {quantity} @ {price:.2f} | Linked Score ID: {self.last_score_id}")
 
 
@@ -151,42 +159,58 @@ class PositionManager:
     # ----------------------------------------------------
     def check_auto_close(self, current_price, symbol=BOT_SYMBOL):
         """
-        current_price: MUST be futures MARK price (from trading_loop)
+        Checks TP, SL, and Break-Even logic.
+        current_price: MUST be futures MARK price.
         """
         if not self.position:
             return
 
+        # 1. Calculate PnL %
         pnl_percent = ((current_price - self.entry_price) / self.entry_price) * 100
         if self.position == "SELL":
             pnl_percent = -pnl_percent
 
-        # --- Break-even logic ---
+        # 2. Check Break-Even Trigger
         if self.break_even_enabled and not self.break_even_activated:
             if pnl_percent >= self.break_even_trigger_pct:
-                # Move SL to entry (0% loss)
-                self.stop_loss = 0
+                
+                # --- THE FIX: COVER FEES ---
+                # If we set stop_loss to 0, we lose money on fees (~0.1%).
+                # We set stop_loss to -0.15 (Negative stop_loss = PROFIT).
+                # Logic below checks: if pnl <= -stop_loss
+                # So: if pnl <= -(-0.15)  --> if pnl <= +0.15%
+                
+                self.stop_loss = -0.15 
                 self.break_even_activated = True
+                self.save_state() # Save immediately so we don't lose this protection
 
                 msg = (
-                    f"🟦 BREAK-EVEN ACTIVATED\n"
+                    f"🛡️ FEES COVERED (Break-Even)\n"
                     f"{symbol}\n"
-                    f"Trade protected at entry.\n"
-                    f"PnL: {pnl_percent:.2f}%"
+                    f"Triggered at: {pnl_percent:.2f}%\n"
+                    f"Stop moved to: +0.15% (Locks fees)"
                 )
                 send_message_sync(msg)
                 print(msg)
 
-        # --- Take Profit ---
+        # 3. Check Take Profit
         if pnl_percent >= self.take_profit:
-            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n"
-                              f"{symbol}")
+            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n{symbol}")
             self.close_position(current_price, symbol)
             return
 
-        # --- Stop Loss (including BE at 0%) ---
+        # 4. Check Stop Loss (Or Trailing/BE Stop)
+        # Note: If self.stop_loss is -0.15, this checks: pnl <= 0.15
         if pnl_percent <= -self.stop_loss:
-            send_message_sync(f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n"
-                              f"{symbol}")
+            
+            # Distinguish between a real loss and a break-even exit
+            if self.stop_loss < 0:
+                # This is actually a profit exit (stopped out at +0.15%)
+                log_msg = f"🛡️ Break-Even Exit (+0.15% locked)\n{symbol}"
+            else:
+                log_msg = f"⛔ Stop Loss hit! {pnl_percent:.2f}%\n{symbol}"
+
+            send_message_sync(log_msg)
             self.close_position(current_price, symbol)
             return
 
