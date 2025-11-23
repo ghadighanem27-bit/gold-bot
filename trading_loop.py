@@ -36,71 +36,57 @@ def trading_loop():
 
     while True:
         try:
-            # ================= PRICE =================
             price = get_futures_price(symbol)
-            ts = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"[{ts}] Mark Price: {price}")
-
             if price is None:
                 time.sleep(loop_interval)
                 continue
 
-            # ================= COOLDOWN =================
+            # --- Manage open position ---
+            pm.check_auto_close(price)
+            if last_score is not None:
+                pm.check_progressive_tp(price, current_score=last_score)
+
+            # --- Cooldown ---
             if pm.cooldown_until:
                 now = datetime.datetime.utcnow()
                 if now < pm.cooldown_until:
-                    remain = int((pm.cooldown_until - now).total_seconds())
-                    print(f"⏳ Cooldown active ({remain}s). Skipping.")
                     time.sleep(loop_interval)
                     continue
 
             # ================= SCORE UPDATE =================
             now_ts = time.time()
-
             if now_ts - last_score_time >= score_update_interval:
-                print("🧮 Updating technical score...")
 
                 df_ltf = get_data(symbol, interval=LTF_TIMEFRAME)
-                time.sleep(0.5)
-
                 df_htf = get_data(symbol, interval=HTF_TIMEFRAME)
-                time.sleep(0.5)
 
                 last_ltf_df = df_ltf
 
                 ltf_score = technical_score(df_ltf, symbol)
                 htf_score = technical_score(df_htf, symbol)
 
-                blended_score = (0.65 * ltf_score) + (0.35 * htf_score)
-
-                last_score = float(blended_score)
+                blended_score = float((0.65 * ltf_score) + (0.35 * htf_score))
+                last_score = blended_score
                 last_score_time = now_ts
 
-                pm.last_score_id= record_score(
-                    symbol,
-                    ltf_score,
-                    htf_score,
-                    blended_score,
-                    decision,
-                    regime=pm.current_regime,
-                    entry_volatility=pm.entry_volatility,
-                    entry_time=pm.entry_time,
+                pm.last_score_id = record_score(
+                    symbol=symbol,
+                    ltf_score=float(ltf_score),
+                    htf_score=float(htf_score),
+                    reinforced_score=float(blended_score),
+                    decision=None,
+                    regime=None,
+                    entry_volatility=None,
+                    entry_time=datetime.datetime.utcnow(),
                     trade_id=None
                 )
 
-                print(f"📊 LTF={ltf_score:.2f} | HTF={htf_score:.2f} | FINAL={blended_score:.2f}")
-
-            # ================= POSITION MANAGEMENT =================
-            pm.check_auto_close(price)
-
-            if last_score is not None:
-                pm.check_progressive_tp(price, current_score=last_score)
-
-            # ================= SIGNAL ENGINE =================
+            # ================= NO SCORE YET =================
             if last_ltf_df is None or last_score is None:
                 time.sleep(loop_interval)
                 continue
 
+            # ================= SIGNAL ENGINE =================
             decision = signals(
                 last_ltf_df,
                 price,
@@ -111,7 +97,34 @@ def trading_loop():
                 stop_loss
             )
 
-            print(f"➡️ Signal = {decision}")
+            # ✅ BLOCK MULTIPLE ENTRIES
+            if pm.position is not None:
+                time.sleep(loop_interval)
+                continue
+
+            # ================= EXECUTE TRADE =================
+            if decision in ["LONG", "SHORT"]:
+
+                winrate = compute_winrate_last20(pm.pnl_history)
+                drawdown = compute_drawdown(pm.pnl_history)
+
+                size = adaptive_position_size(
+                    base_amount=trade_amount,
+                    reinforced_score=last_score,
+                    position_type=decision,
+                    winrate_last20=winrate,
+                    drawdown=drawdown
+                )
+
+                pm.open_position(
+                    side=decision,
+                    price=price,
+                    quantity=size,
+                    take_profit=take_profit,
+                    stop_loss=stop_loss
+                )
+
+            time.sleep(loop_interval)
 
         except Exception as e:
             print(f"⚠️ Error in trading_loop: {e}")
