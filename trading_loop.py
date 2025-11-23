@@ -100,33 +100,7 @@ def trading_loop():
             )
 
             print(f"➡️ Signal = {decision}")
-
-            # ================= ENTRY HANDLER =================
-            if pm.position is None and decision in ["LONG", "SHORT"]:
-
-                winrate_last20 = compute_winrate_last20(pm.pnl_history)
-                drawdown = compute_drawdown(pm.pnl_history)
-
-                size = adaptive_position_size(
-                    base_amount=trade_amount,
-                    reinforced_score=last_score,
-                    position_type=decision,
-                    winrate_last20=winrate_last20,
-                    drawdown=drawdown
-                )
-
-                print(f"📐 Adaptive Size: {size}")
-
-                pm.open_position(
-                    side=decision,
-                    price=price,
-                    quantity=size,
-                    take_profit=take_profit,
-                    stop_loss=stop_loss
-                )
-
-            time.sleep(loop_interval)
-
+            
         except Exception as e:
             print(f"⚠️ Error in trading_loop: {e}")
             send_message_sync(f"⚠️ Error in trading_loop: {e}")
