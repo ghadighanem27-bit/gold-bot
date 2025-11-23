@@ -7,6 +7,7 @@ from datetime import timedelta
 from lib.telegram_bot import send_message_sync
 from lib.vars import client, symbol as BOT_SYMBOL
 from lib.vars import cfg, symbol
+from lib.database_manager import update_score_with_result, record_score, attach_trade_id_to_score_id
 from lib.database_manager import update_score_with_result, record_score,attach_trade_id_to_last_score
 from lib.indicators import technical_score  # kept in case you use it later
 
@@ -56,86 +57,66 @@ class PositionManager:
     # ----------------------------------------------------
     # OPEN FUTURES POSITION (LONG or SHORT)
     # ----------------------------------------------------
-    def open_position(self, side, price, quantity, take_profit=1, stop_loss=0.5):
+    def open_position(self, position: str, price: float, trade_amount: float, take_profit: float, stop_loss: float):
         """
-        side: "BUY" or "SELL"
-        price: mark price
-        quantity: coin quantity (NOT USDT)
+        Executes a market order and robustly links the resulting trade to the 
+        currently stored last_score_id.
         """
-
-        # 1) Validate quantity
-        try:
-            quantity = format_quantity(quantity)
-        except Exception as e:
-            print(e)
+        if self.position is not None:
+            print("❌ Already in a position. Cannot open a new one.")
             return
 
-        # 2) Send MARKET order
+        # 1. PREPARE DATA
+        side = "BUY" if position == "BUY" else "SELL"
+        
+        # Fix: Define 'quantity' explicitly (was 'qty' before)
+        quantity = format_quantity(trade_amount)
+
+        # 2. GENERATE UNIQUE TRADE ID (Internal Linkage)
+        # This ID is used to link the Postgres score row to this trade.
+        if not hasattr(self, 'last_score_id') or self.last_score_id is None:
+            print("⚠️ Cannot open position: last_score_id is missing.")
+            return
+
+        # Create a unique custom ID for DB linkage
+        trade_id = f"{BOT_SYMBOL}_{side}_{int(time.time())}_{self.last_score_id}"
+
+        # 3. EXECUTE ORDER ON BINANCE
         try:
+            # Note: For real trading, you might need clientOrderId or other fields
             order = client.futures_create_order(
                 symbol=BOT_SYMBOL,
-                side="BUY" if side == "BUY" else "SELL",
-                type="MARKET",
+                side=side,
+                type='MARKET',
                 quantity=quantity,
             )
-            print(f"📌 Futures Order Sent: {order}")
-        except Exception as e:
-            print(f"❌ Binance Futures order error: {e}")
-            return
-
-        # 3) Ensure order is FILLED
-        try:
-            order_id = order.get("orderId")
-            status = order.get("status")
-
-            retries = 5
-            while status == "NEW" and retries > 0:
-                time.sleep(0.3)
-                fresh = client.futures_get_order(symbol=BOT_SYMBOL, orderId=order_id)
-                status = fresh.get("status")
-                order = fresh
-                retries -= 1
-
-            if status not in ("FILLED", "PARTIALLY_FILLED"):
-                print(f"❌ Order not filled after retries: {order}")
-                return
-
-        except Exception as e:
-            print(f"⚠️ Error checking order fill status: {e}")
-            return
+            
+            # Fix: Define 'order_id' explicitly from the response
+            order_id = order['orderId']
+            print(f"✅ Binance Order Sent. ID: {order_id}")
         
-
-       
-
-        # attach trade id to the score row associated
-        from lib.database_manager import attach_trade_id_to_last_score
-        attach_trade_id_to_last_score(self.last_score_id)
-
-        # after order is confirmed FILLED
-        self.last_trade_id = order_id
-
-        # 5) ATTACH this trade ID to the latest technical score record
-        try:
-            from lib.database_manager import attach_trade_id_to_last_score
-            attach_trade_id_to_last_score(order_id)
-            print(f"🔗 Attached trade ID {order_id} to last score entry")
         except Exception as e:
-            print(f"⚠️ Failed to attach trade ID: {e}")
+            send_message_sync(f"❌ Failed to open position on Binance: {e}")
+            print(f"❌ Failed to open position on Binance: {e}")
+            return # Abort if order fails
 
-        # 6) Register position locally
-        avg_price = order.get("avgPrice")
-        if avg_price in (None, "0.0", "0.00"):
-            self.entry_price = float(price)
-        else:
-            self.entry_price = float(avg_price)
-
+        # 4. ROBUSTLY LINK TRADE ID TO MTF_SCORES
+        # Use the new function for guaranteed linkage using the unique trade_id
+        attach_trade_id_to_score_id(self.last_score_id, trade_id)
+        
+        # 5. UPDATE POSITION MANAGER STATE
+        self.position = position
+        self.entry_price = price
         self.entry_time = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        self.position = side
         self.quantity = quantity
-        self.take_profit = take_profit
-        self.stop_loss = stop_loss
-        self.pnl = 0.0
-        self.break_even_activated = False
+        self.take_profit_pct = take_profit
+        self.stop_loss_pct = stop_loss
+        self.trade_id = trade_id            # Store the internal trade_id for DB updates
+        self.tp_steps_done = []             # Reset take profit steps
+        self.trailing_active = False        # Reset trailing stop
+        self.save_state()
+        
+        print(f"✅ Position State Updated: {side} {quantity} @ {price:.2f} | Linked Score ID: {self.last_score_id}")
 
 
 

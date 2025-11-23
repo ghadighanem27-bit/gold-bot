@@ -65,9 +65,9 @@ def record_score(
 
 
 # ----------------------------------------------------------
-# ATTACH TRADE ID AFTER OPENING A POSITION
+# ATTACH TRADE ID TO SPECIFIC SCORE ID
 # ----------------------------------------------------------
-def attach_trade_id_to_last_score(trade_id):
+def attach_trade_id_to_score_id(score_id, trade_id):
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -75,17 +75,15 @@ def attach_trade_id_to_last_score(trade_id):
         cur.execute("""
             UPDATE mtf_scores
             SET trade_id = %s
-            WHERE trade_id IS NULL
-            ORDER BY id DESC
-            LIMIT 1
-        """, (trade_id,))
+            WHERE id = %s
+        """, (trade_id, score_id))
 
         conn.commit()
         cur.close()
         conn.close()
 
     except Exception as e:
-        print(f"⚠️ Failed to attach trade id: {e}")
+        print(f"⚠️ Failed to attach trade id to score {score_id}: {e}")
 
 
 # ----------------------------------------------------------
