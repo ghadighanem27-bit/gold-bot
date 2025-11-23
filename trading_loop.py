@@ -76,6 +76,18 @@ def trading_loop():
                 last_score = float(blended_score)
                 last_score_time = now_ts
 
+                pm.last_score_id= record_score(
+                    symbol,
+                    ltf_score,
+                    htf_score,
+                    blended_score,
+                    decision,
+                    regime=pm.current_regime,
+                    entry_volatility=pm.entry_volatility,
+                    entry_time=pm.entry_time,
+                    trade_id=None
+                )
+
                 print(f"📊 LTF={ltf_score:.2f} | HTF={htf_score:.2f} | FINAL={blended_score:.2f}")
 
             # ================= POSITION MANAGEMENT =================
@@ -100,7 +112,7 @@ def trading_loop():
             )
 
             print(f"➡️ Signal = {decision}")
-            
+
         except Exception as e:
             print(f"⚠️ Error in trading_loop: {e}")
             send_message_sync(f"⚠️ Error in trading_loop: {e}")
