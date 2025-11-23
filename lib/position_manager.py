@@ -52,6 +52,63 @@ class PositionManager:
         self.break_even_activated = False
 
         self.load_state()
+    
+    def save_state(self):
+        """
+        Saves the current position details to a JSON file.
+        """
+        data = {
+            "position": self.position,
+            "entry_price": self.entry_price,
+            "entry_time": self.entry_time,
+            "quantity": self.quantity,
+            "take_profit_pct": getattr(self, "take_profit_pct", 0.0),
+            "stop_loss_pct": getattr(self, "stop_loss_pct", 0.0),
+            "trade_id": getattr(self, "trade_id", None),
+            "tp_steps_done": getattr(self, "tp_steps_done", []),
+            "trailing_active": getattr(self, "trailing_active", False),
+            "trailing_peak_pnl": getattr(self, "trailing_peak_pnl", 0.0),
+            # New variables for the recent fixes
+            "break_even_triggered": getattr(self, "break_even_triggered", False),
+            "exit_confirmation": getattr(self, "exit_confirmation", 0)
+        }
+        
+        try:
+            with open(self.save_file, "w") as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            print(f"⚠️ Failed to save position state: {e}")
+
+    def load_state(self):
+        """
+        Loads position details from the JSON file if it exists.
+        """
+        if not os.path.exists(self.save_file):
+            return
+
+        try:
+            with open(self.save_file, "r") as f:
+                data = json.load(f)
+
+            self.position = data.get("position")
+            self.entry_price = data.get("entry_price", 0.0)
+            self.entry_time = data.get("entry_time")
+            self.quantity = data.get("quantity", 0.0)
+            self.take_profit_pct = data.get("take_profit_pct", 0.0)
+            self.stop_loss_pct = data.get("stop_loss_pct", 0.0)
+            self.trade_id = data.get("trade_id")
+            self.tp_steps_done = data.get("tp_steps_done", [])
+            self.trailing_active = data.get("trailing_active", False)
+            self.trailing_peak_pnl = data.get("trailing_peak_pnl", 0.0)
+            # Load new variables
+            self.break_even_triggered = data.get("break_even_triggered", False)
+            self.exit_confirmation = data.get("exit_confirmation", 0)
+
+            if self.position:
+                print(f"♻️ Restored active position: {self.position} {self.quantity} @ {self.entry_price}")
+
+        except Exception as e:
+            print(f"⚠️ Failed to load position state: {e}")
 
     # ----------------------------------------------------
     # OPEN FUTURES POSITION (LONG or SHORT)
