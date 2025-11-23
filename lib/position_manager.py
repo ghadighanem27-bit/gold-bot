@@ -172,7 +172,7 @@ class PositionManager:
 
         # --- Take Profit ---
         if pnl_percent >= self.take_profit:
-            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}\n"
+            send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n"
                               f"{symbol}")
             self.close_position(current_price, symbol)
             return
@@ -349,10 +349,9 @@ class PositionManager:
                         reduceOnly=True
                     )
 
-                    print(f"🎯 Partial TP hit @ {level}%\nClosed {portion*100:.0f}%")
+                    print(f"🎯 Partial TP hit @ {level}%\nClosed {portion*100:.0f}%\n{symbol}")
                     send_message_sync(
-                        f"🎯 Partial TP hit at {level}%\nClosed {portion*100:.0f}% of position."
-                        f"{symbol}"
+                        f"🎯 Partial TP hit at {level}%\nClosed {portion*100:.0f}% of position.\n{symbol}"
                  )
 
                 except Exception as e:

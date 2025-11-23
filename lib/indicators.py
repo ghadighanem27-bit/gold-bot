@@ -147,27 +147,54 @@ def bb_squeeze_score(prices, period=20, nbdev=2):
 # ---------------------------------------------------------------------------
 def rsi_system_score(df, period=14, slope_lookback=5):
     closes = df["c"].astype(float).values
-    rsi = ta.momentum.RSIIndicator(pd_series := df["c"].astype(float), window=period).rsi().values
+
+    rsi = ta.momentum.RSIIndicator(
+        pd_series := df["c"].astype(float),
+        window=period
+    ).rsi().values
 
     r = rsi[-1]
     prev = rsi[-slope_lookback]
     slope = (r - prev) / slope_lookback
 
-    # compression = how tight RSI has been (low std means compression)
-    window = rsi[-period:]
-    compression = 1.0 / (np.std(window) + 1e-6)  # bigger when squeezed
+    # Moving averages for trend context
+    ma_fast = talib.SMA(closes, timeperiod=10)
+    ma_slow = talib.SMA(closes, timeperiod=50)
 
-    # base: prefer RSI between 50–65 with positive slope
-    center = 57.5
+    trend_up = ma_fast[-1] > ma_slow[-1]
+
+    # 🎯 Dynamic RSI target zone depending on trend
+    if trend_up:
+        center = 60      # allow higher RSI in uptrend
+    else:
+        center = 45      # allow lower RSI in downtrend
+
     spread = 20.0
-    val_component = 1.0 - abs(r - center) / spread  # ~1 near center, <0 far
+
+    # Distance from ideal RSI zone
+    distance = abs(r - center)
+
+    # Non-linear penalty for being too far from center
+    exp_penalty = np.exp(distance / 20.0) - 1.0
+
+    # Compression detection (RSI tight range)
+    window = rsi[-period:]
+    compression = 1.0 / (np.std(window) + 1e-6)
+
+    val_component = 1.0 - (distance / spread)
     val_component = np.clip(val_component, -1, 1)
 
-    raw = 0.6 * val_component + 0.3 * (slope / 2.0) + 0.1 * np.tanh(compression / 5.0)
-    score = 50.0 + 50.0 * np.tanh(raw)
+    raw = (
+        0.55 * val_component
+        - 0.25 * exp_penalty
+        + 0.3 * (slope / 2.0)
+        + 0.1 * np.tanh(compression / 5.0)
+    )
 
+    score = 50.0 + 50.0 * np.tanh(raw)
     score = _clamp_0_100(score)
-    print(f" RSI System | score {score:.1f}")
+
+    print(f" RSI Adaptive System | score {score:.1f}")
     return score
 
 
