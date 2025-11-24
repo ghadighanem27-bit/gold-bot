@@ -362,8 +362,9 @@ class PositionManager:
             (1.50, 0.25),
         ]
 
-        if not hasattr(self, "tp_steps_done"):
-            self.tp_steps_done = set()
+        if (not hasattr(self, "tp_steps_done") or not
+            isinstance(self.tp_steps_done, set)):
+                self.tp_steps_done = set()
 
         for level, portion in steps:
 
