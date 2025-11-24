@@ -53,6 +53,9 @@ def trading_loop():
                     time.sleep(loop_interval)
                     continue
 
+            if last_score is None:
+                last_score = 50.0 # Neutral score at start
+
             # ================= SCORE UPDATE =================
             now_ts = time.time()
             if now_ts - last_score_time >= score_update_interval:

@@ -323,6 +323,8 @@ class PositionManager:
         - Trailing stop after final TP
         - Early exit if score momentum weakens
         """
+        if current_score is None:
+            return # Score is required for this logic
 
         if not self.position:
             return
