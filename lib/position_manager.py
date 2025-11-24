@@ -194,14 +194,14 @@ class PositionManager:
                 print(msg)
 
         # 3. Check Take Profit
-        if pnl_percent >= self.take_profit:
+        if self.take_profit is not None and pnl_percent >= float(self.take_profit):
             send_message_sync(f"🎯 Take Profit hit! +{pnl_percent:.2f}%\n{symbol}")
             self.close_position(current_price, symbol)
             return
 
         # 4. Check Stop Loss (Or Trailing/BE Stop)
         # Note: If self.stop_loss is -0.15, this checks: pnl <= 0.15
-        if pnl_percent <= -self.stop_loss:
+        if self.stop_loss is not None and pnl_percent <= -float(self.stop_loss):
             
             # Distinguish between a real loss and a break-even exit
             if self.stop_loss < 0:
