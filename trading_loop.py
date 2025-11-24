@@ -105,28 +105,6 @@ def trading_loop():
                 time.sleep(loop_interval)
                 continue
 
-            # ================= EXECUTE TRADE =================
-            if decision in ["LONG", "SHORT"]:
-
-                winrate = compute_winrate_last20(pm.pnl_history)
-                drawdown = compute_drawdown(pm.pnl_history)
-
-                size = adaptive_position_size(
-                    base_amount=trade_amount,
-                    reinforced_score=last_score,
-                    position_type=decision,
-                    winrate_last20=winrate,
-                    drawdown=drawdown
-                )
-
-                pm.open_position(
-                    side=decision,
-                    price=price,
-                    quantity=size,
-                    take_profit=take_profit,
-                    stop_loss=stop_loss
-                )
-
             time.sleep(loop_interval)
 
         except Exception as e:
