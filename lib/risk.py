@@ -75,7 +75,8 @@ def adaptive_position_size(
         dd_factor = 1.00
 
     size = base_amount * score_factor * performance_factor * dd_factor
-    size = max(0.008, min(size, 0.30))
+    size = min(size, base_amount * 1.2)
+
 
     return round(size, 3)
 

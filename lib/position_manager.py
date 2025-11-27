@@ -419,7 +419,7 @@ class PositionManager:
             if pnl_percent > getattr(self, "trailing_peak_pnl", 0):
                 self.trailing_peak_pnl = pnl_percent
 
-            trailing_distance = 0.30  # 0.30% behind peak
+            trailing_distance = 0.20  # 0.30% behind peak
 
             if pnl_percent <= self.trailing_peak_pnl - trailing_distance:
 

@@ -9,9 +9,9 @@ from lib.telegram_bot import send_message_sync
 # We lowered SOFT_SELL from 40 to 30.
 # This gives the trade more "room to breathe" before exiting.
 STRONG_BUY = 75
-SOFT_BUY   = 60
-SOFT_SELL  = 30  # Was 40
-STRONG_SELL = 25
+SOFT_BUY   = 55
+SOFT_SELL  = 25
+STRONG_SELL = 15
 
 def signals(df, price, symbol, pm, trade_amount=None, take_profit=None, stop_loss=None):
 

@@ -13,7 +13,7 @@ trading:
   risk_percentage: 0.01 # not used yet, but kept
   timeframe: "5m"
   take_profit: 1.5 # in % (for info / strategy)
-  stop_loss: 1.0 # in % (for info / strategy)
+  stop_loss: 0.6 # in % (for info / strategy)
   break_even_enabled: true
   break_even_trigger_pct: 0.4
   position_file: "position_eth.json"
