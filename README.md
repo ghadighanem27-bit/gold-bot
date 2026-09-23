@@ -11,7 +11,7 @@
 ---
 
 > **Project Status and Risk Notice**
-> This bot was developed and tested **exclusively on Binance Futures Testnet**.
+> This bot was developed and tested **exclusively on Binance Futures Testnet** with the help of AI.
 > **It was never used with real money and was never deployed for real-money trading.**
 >
 > The repository contains code for Binance Futures order execution because exchange integration is part of the system design. That code should not be interpreted as evidence of live deployment.
