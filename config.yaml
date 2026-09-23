@@ -4,8 +4,8 @@ binance:
   futures_env: "testnet" # "testnet" or "real"
 
 telegram:
-  bot_token: ""
-  chat_id: ""
+  bot_token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
 
 trading:
   symbol: "ETHUSDT"
@@ -24,4 +24,4 @@ timing:
   loop_interval: 5 # seconds between decision checks
 
 database:
-  url: ""
+  url: "${DATABASE_URL}"
