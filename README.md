@@ -357,13 +357,13 @@ Every score cycle inserts one row into `mtf_scores` (even if no trade is taken);
 
 ```mermaid
 sequenceDiagram
-    participant Loop as trading_loop
+    participant L as trading_loop
     participant DB as database_manager
     participant PM as PositionManager
 
-    Loop->>DB: record_score(ltf, htf, blended)  → returns score_id
-    Note over Loop: signal engine evaluates score
-    Loop->>PM: signals() opens a position
+    L->>DB: record_score(ltf, htf, blended) -> returns score_id
+    Note over L: signal engine evaluates score
+    L->>PM: signals() opens a position
     PM->>DB: attach_trade_id_to_score_id(score_id, trade_id)
     Note over PM: position managed (TP/SL/BE/trailing)
     PM->>DB: update_score_with_result(pnl, exit_time, duration)
