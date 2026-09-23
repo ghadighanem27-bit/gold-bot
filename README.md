@@ -406,4 +406,4 @@ The `/start` and `/stats` command handlers exist in `telegram_bot.py` but the po
 
 This software is an experimental cryptocurrency futures trading project. It was **tested only on Binance Futures Testnet and was never used with real money**. The repository contains exchange-order execution code because exchange integration is part of the intended system design, but no real-money trading is claimed or documented here.
 
-The authors provide no guarantee of profitability, uptime, or correctness. Futures trading and leverage can result in significant losses. Review the code and configuration carefully before connecting any exchange credentials, and use Testnet for development and testing.
+The author provide no guarantee of profitability, uptime, or correctness. Futures trading and leverage can result in significant losses. Review the code and configuration carefully before connecting any exchange credentials, and use Testnet for development and testing.
